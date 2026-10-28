@@ -1,0 +1,42 @@
+### 비밀값 — 절대 커밋하지 않는다 ###
+BE/src/main/resources/application-local.yml
+BE/src/main/resources/application-local.properties
+BE/src/main/resources/application-dev.yml
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+### Java / Gradle ###
+BE/build/
+BE/.gradle/
+BE/bin/
+!BE/gradle/wrapper/gradle-wrapper.jar
+*.class
+*.log
+
+### Node / Vite ###
+FE/node_modules/
+FE/dist/
+FE/.vite/
+npm-debug.log*
+
+### 영상·음성 산출물 (용량이 커서 커밋하면 안 된다) ###
+BE/output/
+BE/tmp/
+*.mp4
+*.mp3
+*.wav
+
+### IDE ###
+.idea/
+*.iml
+*.iws
+.vscode/
+*.code-workspace
+
+### OS ###
+.DS_Store
+Thumbs.db
+desktop.ini
