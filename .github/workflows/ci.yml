@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: reelay
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gradle 프로젝트 존재 확인
+        id: check
+        run: |
+          if [ -f BE/gradlew ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::BE/gradlew 가 아직 없어 백엔드 빌드를 건너뜁니다."
+          fi
+
+      - uses: actions/setup-java@v5
+        if: steps.check.outputs.exists == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: 빌드
+        if: steps.check.outputs.exists == 'true'
+        working-directory: BE
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/reelay
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: test
+          SPRING_AI_OPENAI_API_KEY: dummy-key-for-build
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon build
+
+      - name: 테스트 리포트 업로드
+        if: steps.check.outputs.exists == 'true' && failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-report
+          path: BE/build/reports/tests/test
+          retention-days: 7
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 프론트엔드 프로젝트 존재 확인
+        id: check
+        run: |
+          if [ -f FE/package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::FE/package.json 이 아직 없어 프론트엔드 빌드를 건너뜁니다."
+          fi
+
+      - name: lock 파일 확인
+        id: lock
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          if [ -f FE/package-lock.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true' && steps.lock.outputs.exists == 'true'
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: FE/package-lock.json
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true' && steps.lock.outputs.exists != 'true'
+        with:
+          node-version: '20'
+
+      - name: 의존성 설치
+        if: steps.check.outputs.exists == 'true'
+        working-directory: FE
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            echo "::warning::FE/package-lock.json 이 없어 npm install 로 대체합니다. lock 파일을 커밋하세요."
+            npm install
+          fi
+
+      - name: 린트
+        if: steps.check.outputs.exists == 'true'
+        working-directory: FE
+        run: npm run lint --if-present
+
+      - name: 테스트
+        if: steps.check.outputs.exists == 'true'
+        working-directory: FE
+        run: npm run test:ci --if-present
+
+      - name: 빌드
+        if: steps.check.outputs.exists == 'true'
+        working-directory: FE
+        run: npm run build
