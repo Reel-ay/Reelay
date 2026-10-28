@@ -1,0 +1,40 @@
+name: 작업
+description: 구현·수정할 작업을 등록합니다
+title: "[작업] "
+labels: []
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 무엇을 만들거나 바꾸는지 한두 문장으로
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      description: 무엇이 되면 끝난 것인지
+      placeholder: |
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역
+      options:
+        - BE
+        - FE
+        - 공통/인프라
+    validations:
+      required: true
+
+  - type: textarea
+    id: note
+    attributes:
+      label: 참고
+      description: 참고 링크, 막힐 것 같은 지점
