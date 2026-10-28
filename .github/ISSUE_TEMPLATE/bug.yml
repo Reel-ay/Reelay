@@ -1,7 +1,6 @@
-name: 버그
+name: 버그 신고
 description: 동작하지 않는 것을 신고합니다
 title: "[버그] "
-labels: []
 body:
   - type: textarea
     id: what

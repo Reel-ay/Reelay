@@ -1,7 +1,6 @@
-name: 작업
+name: 작업 등록
 description: 구현·수정할 작업을 등록합니다
 title: "[작업] "
-labels: []
 body:
   - type: textarea
     id: goal
