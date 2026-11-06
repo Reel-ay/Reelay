@@ -53,7 +53,7 @@ public class NaverBlogCrawler implements BlogCrawler{
         return parse(sourceUrl, target.blogId(), target.logNo(), html);
     }
 
-    private Target parseTarget(String sourceUrl) {
+    Target parseTarget(String sourceUrl) {
         UriComponents components;
         try {
             components = UriComponentsBuilder.fromUriString(sourceUrl).build();
@@ -180,6 +180,6 @@ public class NaverBlogCrawler implements BlogCrawler{
         return base + IMAGE_SIZE_QUERY;
     }
 
-    private record Target(String blogId, String logNo) {
+    record Target(String blogId, String logNo) {
     }
 }
