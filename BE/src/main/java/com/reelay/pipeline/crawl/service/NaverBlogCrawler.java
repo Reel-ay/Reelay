@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+// 네이버 블로그 크롤러
+// PostView.naver 응답을 파싱
 @Component
 public class NaverBlogCrawler implements BlogCrawler{
 
@@ -45,6 +47,7 @@ public class NaverBlogCrawler implements BlogCrawler{
     private static final String ZERO_WIDTH_SPACE = "\u200b";
     private static final String IMAGE_SIZE_QUERY = "?type=w966";
 
+    // URL 파싱 -> PostView 요청 -> HTML 파싱
     @Override
     @Retryable(includes = CrawlFailedException.class, multiplier = 2.0)
     public CrawledPost crawl(String sourceUrl) {
@@ -53,6 +56,7 @@ public class NaverBlogCrawler implements BlogCrawler{
         return parse(sourceUrl, target.blogId(), target.logNo(), html);
     }
 
+    // URL에서 blogId와 logNo를 추출
     Target parseTarget(String sourceUrl) {
         UriComponents components;
         try {
@@ -95,6 +99,7 @@ public class NaverBlogCrawler implements BlogCrawler{
         throw new BusinessException(ErrorCode.INVALID_URL);
     }
 
+    // 전부 숫자인지 판단
     private boolean isNumeric(String s) {
         if(s==null || s.isEmpty()) {
             return false;
@@ -108,6 +113,7 @@ public class NaverBlogCrawler implements BlogCrawler{
         return true;
     }
 
+    // PostView 응답 본문을 문자열로 받음, 404는 재시도X
     private String fetch(String url) {
         try {
             return Jsoup.connect(url)
@@ -127,6 +133,7 @@ public class NaverBlogCrawler implements BlogCrawler{
         }
     }
 
+    // HTML에서 제목, 본문, 이미지를 추출
     CrawledPost parse(String sourceUrl, String blogId, String logNo, String html) {
         Document document = Jsoup.parse(html);
 
@@ -166,10 +173,12 @@ public class NaverBlogCrawler implements BlogCrawler{
         return new CrawledPost(sourceUrl, blogId, logNo, title, body, paragraphs.size(), List.copyOf(images));
     }
 
+    // 제로폭 공백을 제거 -> trim
     private String clean(String text) {
         return text.replace(ZERO_WIDTH_SPACE, "").trim();
     }
 
+    // 쿼리를 제거, ?type=w966로 통일
     private String normalizeImageUrl(String raw) {
         if(raw == null || raw.isBlank()) {
             return null;
@@ -180,6 +189,7 @@ public class NaverBlogCrawler implements BlogCrawler{
         return base + IMAGE_SIZE_QUERY;
     }
 
+    // parseTarget 결과
     record Target(String blogId, String logNo) {
     }
 }
