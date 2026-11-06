@@ -1,4 +1,4 @@
-package com.reelay.pipeline.dto;
+package com.reelay.pipeline.script.dto;
 
 // SCRIPT 산출물. highlight 는 caption 안의 부분 문자열
 public record CutDraft(

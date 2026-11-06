@@ -1,4 +1,4 @@
-package com.reelay.pipeline.enums;
+package com.reelay.pipeline.render.enums;
 
 public enum KenBurnsVariant {
     ZOOM_IN_CENTER,

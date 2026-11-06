@@ -1,6 +1,6 @@
-package com.reelay.pipeline.dto;
+package com.reelay.video.dto;
 
-import com.reelay.pipeline.enums.KenBurnsVariant;
+import com.reelay.pipeline.render.enums.KenBurnsVariant;
 
 import java.nio.file.Path;
 

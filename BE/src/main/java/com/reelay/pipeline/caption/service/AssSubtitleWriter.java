@@ -1,6 +1,6 @@
-package com.reelay.pipeline.caption;
+package com.reelay.pipeline.caption.service;
 
-import com.reelay.pipeline.dto.CutInput;
+import com.reelay.video.dto.CutInput;
 
 import java.nio.file.Path;
 import java.util.List;
