@@ -59,5 +59,27 @@ dependencyManagement {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		excludeTags 'network'
+	}
+	environment 'SPRING_PROFILES_ACTIVE', 'local'
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		displayGranularity = 2
+	}
+}
+
+tasks.register('networkTest', Test) {
+	description = '네이버 실제 응답으로 셀렉터와 주소 규칙을 확인한다'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'network'
+	}
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		displayGranularity = 2
+	}
+	outputs.upToDateWhen { false }
 }
