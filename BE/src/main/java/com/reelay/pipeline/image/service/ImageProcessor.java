@@ -1,7 +1,7 @@
-package com.reelay.pipeline.image;
+package com.reelay.pipeline.image.service;
 
-import com.reelay.pipeline.dto.CutDraft;
-import com.reelay.pipeline.dto.CutImage;
+import com.reelay.pipeline.script.dto.CutDraft;
+import com.reelay.pipeline.image.dto.CutImage;
 
 import java.util.List;
 import java.util.UUID;
