@@ -93,6 +93,7 @@ public class VideoPipeline {
     // 테스트에서 동기로 부를 수 있게 분리
     public void run(UUID jobId, String sourceUrl) {
         long startedAt = System.currentTimeMillis();
+        boolean succeeded = false;
         log.info("[{}] 파이프라인 시작 {}", jobId, sourceUrl);
         try {
             storage.prepare(jobId);
@@ -115,6 +116,7 @@ public class VideoPipeline {
 
             int durationMs = totalDuration(cuts);
             recorder.complete(jobId, output.toString(), durationMs, toScenes(jobId, cuts, drafts));
+            succeeded = true;
             log.info("[{}] 완료 {}ms 영상, 소요 {}s", jobId, durationMs, (System.currentTimeMillis() - startedAt) / 1000);
         }
         catch (StepFailedException e) {
@@ -126,7 +128,26 @@ public class VideoPipeline {
             recorder.failJob(jobId, ErrorCode.INTERNAL_ERROR);
         }
         finally {
+            // tmp 는 성공했을 때만 비운다
+            // 실패 시에는 중간 파일(cutN.mp4, joined.mp4, subbed.mp4 등)이 어느 하위 단계에서 멈췄는지 알려주는 단서라 남긴다
+            // 남은 tmp 는 FailedTmpCleaner 가 보관 기간(reelay.storage.failed-tmp-retention-days) 이 지나면 지운다
+            if (succeeded) {
+                cleanTmpQuietly(jobId);
+            }
+            else {
+                log.warn("[{}] 실패 - tmp 유지: {}", jobId, storage.tmpDir(jobId));
+            }
+        }
+    }
+
+    // 정리 실패가 이미 DONE 으로 기록된 job 을 FAILED 로 바꾸지 않도록 예외는 로그만 남긴다
+    // (cleanTmp 를 try 안에 두면 catch (RuntimeException) 으로 빠져 DONE 을 덮어쓸 수 있다)
+    private void cleanTmpQuietly(UUID jobId) {
+        try {
             storage.cleanTmp(jobId);
+        }
+        catch (RuntimeException e) {
+            log.warn("[{}] tmp 정리 실패 (영상은 정상) - {}", jobId, storage.tmpDir(jobId), e);
         }
     }
 
