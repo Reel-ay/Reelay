@@ -15,13 +15,14 @@ public final class ScriptPrompts {
     private ScriptPrompts() {
     }
 
-    public static String system() {
+    public static String system(int targetCuts) {
         return """
                 너는 블로그 글을 30~60초 세로 숏폼 영상 나레이션으로 바꾸는 작가다.
                 영상은 컷 단위로 만든다. 컷 1개 = 나레이션 1문장 = 화면 자막 1줄 = 이미지 1장이다.
 
                 [분량]
-                - 컷은 정확히 %d개. (훅 1~2컷, 본문 14~15컷, 엔딩 1~2컷)
+                - 컷은 정확히 %d개. (훅 1~2컷, 엔딩 1~2컷, 나머지는 본문)
+                  원문이 짧으면 내용을 부풀리지 말고 원문에 있는 만큼만 쓴다.
                 - narration 은 공백 제외 %d~%d자. 이 글자 수는 영상 길이를 결정하므로 반드시 지킨다.
                   한 문장에 정보는 하나만 담는다. 길어지면 두 컷으로 나눈다.
 
@@ -51,7 +52,7 @@ public final class ScriptPrompts {
                 - 입력의 이미지 목록 index 중에서만 고른다. 그 컷 내용과 원문 위치가 가까운 이미지를 고른다.
                 - 같은 이미지를 여러 컷에 다시 써도 된다. 맞는 이미지가 없으면 null.
                 - URL 이나 새 이미지를 만들지 않는다.
-                """.formatted(ScriptRules.TARGET_CUTS, ScriptRules.MIN_NARRATION_CHARS, ScriptRules.MAX_NARRATION_CHARS);
+                """.formatted(targetCuts, ScriptRules.MIN_NARRATION_CHARS, ScriptRules.MAX_NARRATION_CHARS);
     }
 
     public static String user(CrawledPost post) {

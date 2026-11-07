@@ -90,9 +90,11 @@ class ScriptValidatorTest {
     }
 
     @Test
-    @DisplayName("컷이 15개 미만이면 SCRIPT_FAILED")
+    @DisplayName("짧은 글용으로 컷이 적어도 받아주지만, 3개 미만이면 SCRIPT_FAILED")
     void tooFewCuts() {
-        assertThatThrownBy(() -> validator.validate(new LlmScript(cuts(10)), 3))
+        assertThat(validator.validate(new LlmScript(cuts(5)), 3).cuts()).hasSize(5);
+
+        assertThatThrownBy(() -> validator.validate(new LlmScript(cuts(2)), 3))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCRIPT_FAILED);
     }
@@ -101,6 +103,14 @@ class ScriptValidatorTest {
     @DisplayName("컷이 25개를 넘으면 뒤를 자른다")
     void tooManyCuts() {
         assertThat(validator.validate(new LlmScript(cuts(30)), 3).cuts()).hasSize(ScriptRules.MAX_CUTS);
+    }
+
+    @Test
+    @DisplayName("목표 컷 수는 본문 100자당 1컷, 4~18 사이")
+    void targetCuts() {
+        assertThat(ScriptRules.targetCuts(1_855)).isEqualTo(18); // 실측 중간값
+        assertThat(ScriptRules.targetCuts(900)).isEqualTo(9);
+        assertThat(ScriptRules.targetCuts(150)).isEqualTo(4);
     }
 
     @Test

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 // SCRIPT 단계: 크롤링 결과 -> 컷 대본(CutDraft) 목록
+// 컷 수는 18 고정이 아니라 본문 길이에 맞춘다 (짧은 글은 컷을 줄인다)
 // 1) 생성  2) 검증·정리  3) 길이 초과 컷이 있으면 "줄여줘" 1회 재호출
 @Service
 public class ScriptService {
@@ -28,8 +29,10 @@ public class ScriptService {
 
     public List<CutDraft> generate(CrawledPost post) {
         int imageCount = post.images().size();
+        int targetCuts = ScriptRules.targetCuts(post.body().length());
+        String system = ScriptPrompts.system(targetCuts);
 
-        LlmScript first = llm.call(ScriptPrompts.system(), ScriptPrompts.user(post));
+        LlmScript first = llm.call(system, ScriptPrompts.user(post));
         ScriptResult result = validator.validate(first, imageCount);
         logLengths("1차", result);
 
@@ -39,7 +42,7 @@ public class ScriptService {
 
         // 프롬프트만으로는 글자 수를 잘 안 지킨다 (실측 29~37자). 한 번만 줄여 달라고 다시 부른다
         try {
-            LlmScript shortened = llm.call(ScriptPrompts.system(),
+            LlmScript shortened = llm.call(system,
                     ScriptPrompts.shorten(result.cuts(), result.tooLongCutOrders()));
             ScriptResult second = validator.validate(shortened, imageCount);
             logLengths("줄이기", second);
