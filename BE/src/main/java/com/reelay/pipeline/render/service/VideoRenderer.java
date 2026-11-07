@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 // FFmpeg 합성. 1080x1920 / 30fps
-public interface FfmpegRenderer {
+public interface VideoRenderer {
 
     Path render(UUID jobId, List<CutInput> cuts, Path subtitleFile);
 }
