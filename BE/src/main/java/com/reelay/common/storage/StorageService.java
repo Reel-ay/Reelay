@@ -28,7 +28,7 @@ public interface StorageService {
 
     long size(Path path);
 
-    boolean exists(Path path);
+    boolean isFile(Path path);
 
     void cleanTmp(UUID jobId);
 }
