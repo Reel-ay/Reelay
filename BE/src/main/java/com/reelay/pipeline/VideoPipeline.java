@@ -4,13 +4,13 @@ import com.reelay.common.config.AsyncConfig;
 import com.reelay.common.exception.BusinessException;
 import com.reelay.common.exception.ErrorCode;
 import com.reelay.common.storage.StorageService;
-import com.reelay.pipeline.caption.service.AssSubtitleWriter;
+import com.reelay.pipeline.caption.service.SubtitleWriter;
 import com.reelay.pipeline.crawl.dto.CrawledImage;
 import com.reelay.pipeline.crawl.dto.CrawledPost;
 import com.reelay.pipeline.crawl.service.BlogCrawler;
 import com.reelay.pipeline.image.dto.CutImage;
 import com.reelay.pipeline.image.service.ImageProcessor;
-import com.reelay.pipeline.render.service.FfmpegRenderer;
+import com.reelay.pipeline.render.service.VideoRenderer;
 import com.reelay.pipeline.script.dto.CutDraft;
 import com.reelay.pipeline.script.service.ScriptService;
 import com.reelay.pipeline.tts.dto.CutAudio;
@@ -58,8 +58,8 @@ public class VideoPipeline {
     // B 구현이 develop 에 들어오기 전에도 서버가 뜨도록 ObjectProvider 로 받는다
     // 구현이 없으면 IMAGE 는 텍스트 카드로 폴백, CAPTION·RENDER 는 실패 처리
     private final ObjectProvider<ImageProcessor> imageProcessor;
-    private final ObjectProvider<AssSubtitleWriter> subtitleWriter;
-    private final ObjectProvider<FfmpegRenderer> renderer;
+    private final ObjectProvider<SubtitleWriter> subtitleWriter;
+    private final ObjectProvider<VideoRenderer> renderer;
 
     // FFmpeg 렌더가 CPU 를 다 쓰므로 동시 실행 수를 따로 제한한다 (B 와 결정할 값)
     private final Semaphore renderPermits;
@@ -70,8 +70,8 @@ public class VideoPipeline {
                          ScriptService scriptService,
                          TtsService ttsService,
                          ObjectProvider<ImageProcessor> imageProcessor,
-                         ObjectProvider<AssSubtitleWriter> subtitleWriter,
-                         ObjectProvider<FfmpegRenderer> renderer,
+                         ObjectProvider<SubtitleWriter> subtitleWriter,
+                         ObjectProvider<VideoRenderer> renderer,
                          @Value("${reelay.render.max-concurrent:1}") int renderMaxConcurrent) {
         this.recorder = recorder;
         this.storage = storage;
@@ -108,7 +108,7 @@ public class VideoPipeline {
 
             List<CutInput> cuts = assemble(drafts, images, audios);
 
-            Path subtitle = step(jobId, StepType.CAPTION, () -> required(subtitleWriter, "AssSubtitleWriter")
+            Path subtitle = step(jobId, StepType.CAPTION, () -> required(subtitleWriter, "SubtitleWriter")
                     .write(jobId, post.title(), cuts));
 
             Path output = step(jobId, StepType.RENDER, () -> render(jobId, cuts, subtitle));
@@ -167,7 +167,7 @@ public class VideoPipeline {
     }
 
     private Path render(UUID jobId, List<CutInput> cuts, Path subtitle) {
-        FfmpegRenderer r = required(renderer, "FfmpegRenderer");
+        VideoRenderer r = required(renderer, "VideoRenderer");
         try {
             renderPermits.acquire();
         }
