@@ -38,7 +38,8 @@ public class SpeechClient {
                 .speed(speed)
                 .instructions(instructions.isBlank() ? null : instructions)
                 // B 와의 약속: TTS 는 반드시 wav
-                // mp3 는 프레임 경계(26ms)로 길이가 양자화돼서 18컷이면 약 380ms 가 누적으로 어긋난다 -> 자막 타이밍 붕괴
+                // mp3 는 이음새마다 약 48ms(24kHz) 씩 어긋나 18컷이면 약 816ms 누적 -> 자막 타이밍 붕괴
+                // (파일별 길이는 정확히 나와서 audioMs 로는 안 잡힌다. 이어 붙인 뒤에만 틀어진다)
                 .responseFormat(OpenAiAudioSpeechOptions.AudioResponseFormat.WAV)
                 .build();
     }
