@@ -1,4 +1,4 @@
-### 비밀값 — 절대 커밋하지 않는다 ###
+### 비밀값 ###
 BE/src/main/resources/application-local.yml
 BE/src/main/resources/application-local.properties
 BE/src/main/resources/application-dev.yml
@@ -11,7 +11,6 @@ BE/src/main/resources/application-dev.yml
 ### Java / Gradle ###
 BE/build/
 BE/.gradle/
-BE/bin/
 !BE/gradle/wrapper/gradle-wrapper.jar
 *.class
 *.log
@@ -22,9 +21,7 @@ FE/dist/
 FE/.vite/
 npm-debug.log*
 
-### 영상·음성 산출물 (용량이 커서 커밋하면 안 된다) ###
-BE/output/
-BE/tmp/
+### 영상·음성 산출물 ###
 *.mp4
 *.mp3
 *.wav
