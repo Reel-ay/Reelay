@@ -48,7 +48,13 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-
+      - name: FFmpeg 설치
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
       - name: 빌드
         if: steps.check.outputs.exists == 'true'
         working-directory: BE
