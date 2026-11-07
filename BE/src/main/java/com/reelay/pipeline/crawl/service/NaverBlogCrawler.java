@@ -57,7 +57,9 @@ public class NaverBlogCrawler implements BlogCrawler{
     }
 
     // URL에서 blogId와 logNo를 추출
-    Target parseTarget(String sourceUrl) {
+    // POST /api/videos 에서 요청 즉시 INVALID_URL 을 판정하려고 public static 으로 연다
+    // (크롤러 빈은 @Retryable 프록시라 구현 클래스로 주입받지 않는다)
+    public static Target parseTarget(String sourceUrl) {
         UriComponents components;
         try {
             components = UriComponentsBuilder.fromUriString(sourceUrl).build();
@@ -100,7 +102,7 @@ public class NaverBlogCrawler implements BlogCrawler{
     }
 
     // 전부 숫자인지 판단
-    private boolean isNumeric(String s) {
+    private static boolean isNumeric(String s) {
         if(s==null || s.isEmpty()) {
             return false;
         }
@@ -190,6 +192,6 @@ public class NaverBlogCrawler implements BlogCrawler{
     }
 
     // parseTarget 결과
-    record Target(String blogId, String logNo) {
+    public record Target(String blogId, String logNo) {
     }
 }
