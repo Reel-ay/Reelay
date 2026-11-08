@@ -1,6 +1,7 @@
 package com.reelay.pipeline.render.service;
 
 import com.reelay.common.ffmpeg.Ffmpeg;
+import com.reelay.common.font.FontDir;
 import com.reelay.common.storage.StorageService;
 import com.reelay.video.dto.CutInput;
 import org.slf4j.Logger;
@@ -39,10 +40,12 @@ public class FfmpegRenderer implements VideoRenderer {
 
     private final Ffmpeg ffmpeg;
     private final StorageService storage;
+    private final FontDir fontDir;
 
-    public FfmpegRenderer(Ffmpeg ffmpeg, StorageService storage) {
+    public FfmpegRenderer(Ffmpeg ffmpeg, StorageService storage, FontDir fontDir) {
         this.ffmpeg = ffmpeg;
         this.storage = storage;
+        this.fontDir = fontDir;
     }
 
     // 영상 조립
@@ -144,7 +147,8 @@ public class FfmpegRenderer implements VideoRenderer {
         Path out = tmp.resolve("subbed.mp4");
         ffmpeg.run(List.of(
                 "-i", video.toString(),
-                "-vf", "ass=" + Ffmpeg.filterPath(subtitleFile),
+                "-vf", "ass=" + Ffmpeg.filterPath(subtitleFile) +
+                        ":fontsdir=" + Ffmpeg.filterPath(fontDir.path()),
                 "-c:v", "libx264", "-pix_fmt", "yuv420p",
                 "-preset", "medium", "-crf", "20",
                 "-r", String.valueOf(FPS),
