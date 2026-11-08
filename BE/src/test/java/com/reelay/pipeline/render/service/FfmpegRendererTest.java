@@ -1,6 +1,7 @@
 package com.reelay.pipeline.render.service;
 
 import com.reelay.common.ffmpeg.Ffmpeg;
+import com.reelay.common.font.FontDir;
 import com.reelay.common.storage.LocalStorageService;
 import com.reelay.pipeline.render.enums.KenBurnsVariant;
 import com.reelay.video.dto.CutInput;
@@ -34,7 +35,7 @@ class FfmpegRendererTest {
     void setUp() {
         ffmpeg = new Ffmpeg("ffmpeg", "ffprobe");
         storage = new LocalStorageService(tempDir.toString());
-        renderer = new FfmpegRenderer(ffmpeg, storage);
+        renderer = new FfmpegRenderer(ffmpeg, storage, new FontDir());
         jobId = UUID.randomUUID();
         storage.prepare(jobId);
     }
