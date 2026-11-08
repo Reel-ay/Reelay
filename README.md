@@ -85,7 +85,7 @@ flowchart TB
 
 ## 기술 스택
 
-| | |
+| 영역 | 기술 |
 |---|---|
 | Backend | Java 17, Spring Boot 4, Spring AI (OpenAI), Spring Data JPA, Flyway, MySQL 8.4, Jsoup |
 | Frontend | React 19, Vite |
