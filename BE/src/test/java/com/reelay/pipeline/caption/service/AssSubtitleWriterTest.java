@@ -189,8 +189,60 @@ class AssSubtitleWriterTest {
         assertThat(maxWidth(ass, ",sub,")).isLessThanOrEqualTo(878.0);
     }
 
+    @Test
+    @DisplayName("highlight가 caption 안에 있으면 그 부분만 색을 바꾼다")
+    void paintsHighlightInsideCaption() throws IOException {
+        Path ass = writer.write(jobId, "제목",
+                List.of(cut(0, "필기시험 난이도", "필기시험", 0, 3000)));
+
+        assertThat(subLine(ass))
+                .contains("{\\c&H0018C5F5&}필기시험{\\c&H00FFFFFF&} 난이도");
+    }
+
+    @Test
+    @DisplayName("highlight가 없으면 색 태그를 넣지 않는다")
+    void keepsPlainCaptionWithoutHighlight() throws IOException {
+        Path ass = writer.write(jobId, "제목", List.of(cut(0, "필기시험 난이도", null, 0, 3000)));
+
+        assertThat(subLine(ass)).doesNotContain("\\c&H");
+    }
+
+    @Test
+    @DisplayName("highlight가 caption에 없으면 그냥 넘어간다")
+    void ignoresHighlightNotInCaption() throws IOException {
+        Path ass = writer.write(jobId, "제목",
+                List.of(cut(0, "필기시험 난이도", "합격률", 0, 3000)));
+
+        String sub = subLine(ass);
+        assertThat(sub).doesNotContain("\\c&H");
+        assertThat(sub).contains("필기시험 난이도");
+    }
+
+    @Test
+    @DisplayName("두 줄로 접혀 highlight가 쪼개지면 색을 넣지 않는다")
+    void skipsHighlightSplitAcrossLines() throws IOException {
+        Path ass = writer.write(jobId, "제목",
+                List.of(cut(0, "자동차정비기능사 필기시험 난이도와 합격률", "기능사 필기시험", 0, 3000)));
+
+        String sub = subLine(ass);
+        assertThat(sub).contains("\\N");
+        assertThat(sub).doesNotContain("\\c&H");
+    }
+
+    @Test
+    @DisplayName("제목에는 색을 넣지 않는다")
+    void neverPaintsTitle() throws IOException {
+        Path ass = writer.write(jobId, "합격률", List.of(cut(0, "합격률", "합격률", 0, 3000)));
+
+        assertThat(titleLine(ass)).doesNotContain("\\c&H");
+    }
+
     private CutInput cut(int cutOrder, String caption, int startMs, int audioMs) {
-        return new CutInput(cutOrder, "내레이션", caption, null, null, null, audioMs, startMs, null);
+        return cut(cutOrder, caption, null, startMs, audioMs);
+    }
+
+    private CutInput cut(int cutOrder, String caption, String highlight, int startMs, int audioMs) {
+        return new CutInput(cutOrder, "내레이션", caption, highlight, null, null, audioMs, startMs, null);
     }
 
     private String read(Path ass) throws IOException {
@@ -234,7 +286,7 @@ class AssSubtitleWriterTest {
             }
             Font font = base.deriveFont((float) Integer.parseInt(m.group(1)));
 
-            String body = line.substring(line.lastIndexOf('}') + 1);
+            String body = line.substring(line.lastIndexOf(",,") + 2).replaceAll("\\{[^}]*}", "");
             for(String row : body.split("\\\\N")) {
                 max = Math.max(max, font.getStringBounds(row, frc).getWidth());
             }

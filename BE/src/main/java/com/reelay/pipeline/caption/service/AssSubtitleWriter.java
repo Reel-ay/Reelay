@@ -34,6 +34,9 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private static final int TITLE_HARD_MIN = 56;
     private static final String TITLE_SEPARATORS = "｜|【】[]";
 
+    private static final String HIGHLIGHT_COLOR = "&H0018C5F5&";
+    private static final String DEFAULT_COLOR = "&H00FFFFFF&";
+
     private static final int SAFE_LEFT = 100;
     private static final int SAFE_RIGHT = 978;
     private static final int MAX_TEXT_WIDTH = SAFE_RIGHT - SAFE_LEFT;
@@ -96,7 +99,7 @@ public class AssSubtitleWriter implements SubtitleWriter {
         if(title == null || title.isBlank()) {
             return "";
         }
-        return dialogue("title", 0, totalMs, TITLE_Y, fitTitle(title));
+        return dialogue("title", 0, totalMs, TITLE_Y, fitTitle(title), null);
     }
 
     // 컷별 자막 생성
@@ -105,7 +108,8 @@ public class AssSubtitleWriter implements SubtitleWriter {
             return "";
         }
         Fitted fitted = fit(cut.caption(), SUB_SIZE, SUB_MIN_SIZE);
-        return dialogue("sub", cut.startMs(), cut.startMs() + cut.audioMs(), SUB_Y, fitted);
+        return dialogue("sub", cut.startMs(), cut.startMs() + cut.audioMs(), SUB_Y, fitted,
+                cut.highlight());
     }
 
     // 제목 핵심어 추출
@@ -149,10 +153,36 @@ public class AssSubtitleWriter implements SubtitleWriter {
     }
 
     // ASS Dialogue 문자열 생성
-    private String dialogue(String style, int startMs, int endMs, int y, Fitted fitted) {
-        String text = String.join("\\N", fitted.lines());
+    private String dialogue(String style, int startMs, int endMs, int y, Fitted fitted,
+                            String highlight) {
+        List<String> painted = new ArrayList<>(fitted.lines().size());
+        for(String line : fitted.lines()) {
+            painted.add(paint(line, highlight));
+        }
+
+        String text = String.join("\\N", painted);
         return "Dialogue: 0,%s,%s,%s,,0,0,0,,{\\pos(%d,%d)\\fs%d}%s%n"
                 .formatted(time(startMs), time(endMs), style, WIDTH / 2, y, fitted.size(), text);
+    }
+
+    private String paint(String line, String highlight) {
+        if(highlight == null || highlight.isBlank()) {
+            return line;
+        }
+
+        String needle = sanitize(highlight);
+        if(needle.isEmpty()) {
+            return line;
+        }
+
+        int at = line.indexOf(needle);
+        if(at < 0) {
+            return line;
+        }
+
+        return line.substring(0, at)
+                + "{\\c" + HIGHLIGHT_COLOR + "}" + needle + "{\\c" + DEFAULT_COLOR + "}"
+                + line.substring(at + needle.length());
     }
 
     // 줄바꿈 및 글자 크기 조정
