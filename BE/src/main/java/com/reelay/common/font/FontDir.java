@@ -32,6 +32,10 @@ public class FontDir {
         return dir;
     }
 
+    public Path fontFile() {
+        return dir.resolve(FONTS.get(0));
+    }
+
     private Path extract() {
         Path target = Path.of(System.getProperty("java.io.tmpdir"), TMP_DIR_NAME);
         try {
