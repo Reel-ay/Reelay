@@ -95,6 +95,66 @@ class FfmpegRendererTest {
         assertThat(blackLevelAt(out, 1.5)).isZero();
     }
 
+    @Test
+    @DisplayName("KenBurns 4종을 적용해도 컷 길이가 그대로다")
+    void keepsLengthWithEveryKenBurnsVariant() {
+        List<CutInput> cuts = List.of(
+                kenBurnsCut(0, KenBurnsVariant.ZOOM_IN_CENTER),
+                kenBurnsCut(1, KenBurnsVariant.ZOOM_OUT_CENTER),
+                kenBurnsCut(2, KenBurnsVariant.PAN_LEFT_TO_RIGHT),
+                kenBurnsCut(3, KenBurnsVariant.PAN_TOP_TO_BOTTOM));
+
+        Path out = renderer.render(jobId, cuts, null);
+
+        assertThat(ffmpeg.probeSeconds(out)).isEqualTo(8.0, offset(0.05));
+    }
+
+    @Test
+    @DisplayName("kenburns 가 null 이면 정지 화면으로 둔다")
+    void rendersStillWhenNoVariant() {
+        List<CutInput> cuts = List.of(kenBurnsCut(0, null));
+
+        Path out = renderer.render(jobId, cuts, null);
+
+        assertThat(ffmpeg.probeSeconds(out)).isEqualTo(2.0, offset(0.05));
+    }
+
+    @Test
+    @DisplayName("KenBurns 를 적용해도 해상도가 유지된다")
+    void keepsResolutionWithKenBurns() {
+        Path out = renderer.render(jobId,
+                List.of(kenBurnsCut(0, KenBurnsVariant.PAN_LEFT_TO_RIGHT)), null);
+
+        assertThat(resolutionOf(out)).isEqualTo("1080x1920");
+    }
+
+    private CutInput kenBurnsCut(int cutOrder, KenBurnsVariant kenburns) {
+        Path image = storage.imagePath(jobId, cutOrder);
+        ffmpeg.run(List.of("-f", "lavfi", "-i", "testsrc2=size=966x724:d=1",
+                "-frames:v", "1", image.toString()), SETUP_TIMEOUT);
+
+        Path audio = storage.audioPath(jobId, cutOrder);
+        ffmpeg.run(List.of("-f", "lavfi", "-i", "sine=f=440:d=2",
+                "-ar", "24000", "-ac", "1", audio.toString()), SETUP_TIMEOUT);
+
+        return new CutInput(cutOrder, "내레이션", "자막", "자막",
+                image, audio, ffmpeg.probeMillis(audio), 0, kenburns);
+    }
+
+    private String resolutionOf(Path video) {
+        Path png = tempDir.resolve("size.png");
+        ffmpeg.run(List.of("-i", video.toString(), "-frames:v", "1", png.toString()),
+                SETUP_TIMEOUT);
+
+        try {
+            BufferedImage frame = ImageIO.read(png.toFile());
+            return frame.getWidth() + "x" + frame.getHeight();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     private CutInput cut(int cutOrder, String imageSize, String seconds) {
         return cut(cutOrder, imageSize, seconds, "자막", 0);
     }
