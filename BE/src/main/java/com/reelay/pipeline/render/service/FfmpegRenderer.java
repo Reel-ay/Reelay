@@ -34,9 +34,9 @@ public class FfmpegRenderer implements VideoRenderer {
     private static final String CARD_COLOR = "black";
 
     private static final String FIT_FILTER =
-            "scale=" + WIDTH + ":" + HEIGHT + ":force_original_aspect_ratio=decrease"
+            "scale=" + WIDTH + ":" + HEIGHT + ":force_original_aspect_ratio=decrease:out_range=tv"
                     + ",pad=" + WIDTH + ":" + HEIGHT + ":(ow-iw)/2:(oh-ih)/2:black"
-                    + ",fps=" + FPS + ",setsar=1";
+                    + ",fps=" + FPS + ",setsar=1,format=yuv420p";
 
     private final Ffmpeg ffmpeg;
     private final StorageService storage;
