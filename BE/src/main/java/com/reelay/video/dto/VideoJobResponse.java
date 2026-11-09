@@ -7,6 +7,7 @@ import com.reelay.video.entity.VideoScene;
 import com.reelay.video.enums.JobStatus;
 import com.reelay.video.enums.StepStatus;
 import com.reelay.video.enums.StepType;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -67,8 +68,14 @@ public record VideoJobResponse(
     // retryable=false -> FE "다른 글 주소 넣기" (비공개·삭제 글 등)
     // sourceUrl 을 함께 줘서 사용자가 원문을 직접 확인할 수 있게 한다
     public record ErrorBody(
+            @Schema(description = "실패 원인 코드",
+                    allowableValues = {"INVALID_URL", "SOURCE_URL_TOO_LONG", "CRAWL_EMPTY_BODY",
+                            "JOB_NOT_FOUND", "SCENE_NOT_FOUND", "SCENE_HAS_NO_IMAGE", "FILE_NOT_FOUND",
+                            "JOB_NOT_READY", "CRAWL_FAILED", "SCRIPT_FAILED", "TTS_FAILED",
+                            "RENDER_FAILED", "SERVER_RESTARTED", "INTERNAL_ERROR"})
             String code,
             String message,
+            @Schema(description = "true면 같은 URL로 재시도, false면 다른 글 필요")
             boolean retryable,
             String sourceUrl
     ) {

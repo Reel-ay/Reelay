@@ -6,6 +6,14 @@ import com.reelay.video.dto.CreateVideoRequest;
 import com.reelay.video.dto.CreateVideoResponse;
 import com.reelay.video.dto.VideoJobResponse;
 import com.reelay.video.service.VideoJobService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import com.reelay.video.dto.VideoJobResponse.ErrorBody;
 import jakarta.validation.Valid;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -30,6 +38,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 // 영상 API 4개. 인증 없음 - jobId(UUID v4)를 아는 사람이 소유자
+@Tag(name = "영상", description = "네이버 블로그 글을 9:16 쇼츠로 변환")
 @RestController
 @RequestMapping("/api/videos")
 public class VideoController {
@@ -43,6 +52,13 @@ public class VideoController {
     }
 
     // 1. 영상 생성 요청 -> 202 + jobId. 이후 FE 는 2초 간격으로 GET 폴링
+    @Operation(summary = "영상 생성 요청",
+            description = "202+jobId 즉시 반환, 변환은 백그라운드. Location헤더에 조회 주소. 2초 간격 폴링, 완료까지 50~60초")
+    @ApiResponses({
+            @ApiResponse(responseCode = "202", description = "접수됨"),
+            @ApiResponse(responseCode = "400", description = "INVALID_URL, SOURCE_URL_TOO_LONG",
+                    content = @Content(schema = @Schema(implementation = ErrorBody.class)))
+    })
     @PostMapping
     public ResponseEntity<CreateVideoResponse> create(@Valid @RequestBody CreateVideoRequest request) {
         UUID jobId = videoJobService.create(request.sourceUrl());
@@ -52,6 +68,13 @@ public class VideoController {
     }
 
     // 2. 상태·결과·실패 조회. 실패한 job 도 200
+    @Operation(summary = "상태·결과 조회",
+            description = "steps는 항상 6개, scenes는 DONE일 때만. 변환 실패도 200 -> status와 error로 판단할 것. StepStatus에 FAILED 없음")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "실패한 job도 여기로"),
+            @ApiResponse(responseCode = "404", description = "JOB_NOT_FOUND. UUID 형식 아닌 경우 포함",
+                    content = @Content(schema = @Schema(implementation = ErrorBody.class)))
+    })
     @GetMapping("/{jobId}")
     public VideoJobResponse get(@PathVariable String jobId) {
         return videoJobService.get(parseJobId(jobId));
@@ -60,8 +83,19 @@ public class VideoController {
     // 3. 영상 파일
     // Resource 로 돌려주면 Spring MVC 가 Range 요청을 처리해 206 을 준다 (플레이어 구간 탐색, 재다운로드 방지)
     // download=true 면 첨부파일로, 파일명은 글 제목 (RFC 5987 filename*=UTF-8'')
+    @Operation(summary = "영상 파일",
+            description = "Range 지원 -> video 태그에 꽂으면 구간 탐색 가능. download=true면 첨부파일, 파일명은 글 제목")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "전체"),
+            @ApiResponse(responseCode = "206", description = "Range 부분 응답"),
+            @ApiResponse(responseCode = "404", description = "JOB_NOT_FOUND, FILE_NOT_FOUND",
+                    content = @Content(schema = @Schema(implementation = ErrorBody.class))),
+            @ApiResponse(responseCode = "409", description = "JOB_NOT_READY. 렌더 미완료",
+                    content = @Content(schema = @Schema(implementation = ErrorBody.class)))
+    })
     @GetMapping("/{jobId}/file")
     public ResponseEntity<Resource> file(@PathVariable String jobId,
+                                         @Parameter(description = "true면 첨부파일로 내려받기")
                                          @RequestParam(defaultValue = "false") boolean download) {
         VideoJobService.VideoFile file = videoJobService.videoFile(parseJobId(jobId));
 
@@ -78,6 +112,14 @@ public class VideoController {
 
     // 4. 컷 이미지 (B 가 가공해 둔 jpg)
     // 네이버 이미지 서버가 외부 Referer 를 403 으로 막아서 FE 가 원본 URL 을 직접 쓸 수 없다 -> 백엔드가 서빙
+    @Operation(summary = "컷 이미지",
+            description = "네이버가 외부 Referer를 403으로 막음 -> 원본 URL 직접 사용 금지. 텍스트 카드 컷은 404")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "jpg"),
+            @ApiResponse(responseCode = "404",
+                    description = "SCENE_HAS_NO_IMAGE(텍스트 카드), SCENE_NOT_FOUND, JOB_NOT_FOUND",
+                    content = @Content(schema = @Schema(implementation = ErrorBody.class)))
+    })
     @GetMapping("/{jobId}/scenes/{cutOrder}/image")
     public ResponseEntity<Resource> sceneImage(@PathVariable String jobId, @PathVariable int cutOrder) {
         Path path = videoJobService.sceneImage(parseJobId(jobId), cutOrder);
