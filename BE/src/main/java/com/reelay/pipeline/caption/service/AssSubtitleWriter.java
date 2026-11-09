@@ -30,9 +30,14 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private static final int SUB_SIZE = 92;
     private static final int SUB_MIN_SIZE = 72;
     private static final int TITLE_SIZE = 158;
-    private static final int TITLE_MIN_SIZE = 110;
+    private static final int TITLE_ONE_LINE_FLOOR = 100;
+    private static final int TITLE_HARD_MIN = 56;
+    private static final String TITLE_SEPARATORS = "｜|【】[]";
 
-    private static final int MAX_TEXT_WIDTH = WIDTH - 120;
+    private static final int SAFE_LEFT = 100;
+    private static final int SAFE_RIGHT = 978;
+    private static final int MAX_TEXT_WIDTH = SAFE_RIGHT - SAFE_LEFT;
+    private static final int HARD_MIN_SIZE = 60;
 
     private static final String FONT_NAME = "Black Han Sans";
 
@@ -91,8 +96,7 @@ public class AssSubtitleWriter implements SubtitleWriter {
         if(title == null || title.isBlank()) {
             return "";
         }
-        Fitted fitted = fit(title, TITLE_SIZE, TITLE_MIN_SIZE);
-        return dialogue("title", 0, totalMs, TITLE_Y, fitted);
+        return dialogue("title", 0, totalMs, TITLE_Y, fitTitle(title));
     }
 
     // 컷별 자막 생성
@@ -102,6 +106,46 @@ public class AssSubtitleWriter implements SubtitleWriter {
         }
         Fitted fitted = fit(cut.caption(), SUB_SIZE, SUB_MIN_SIZE);
         return dialogue("sub", cut.startMs(), cut.startMs() + cut.audioMs(), SUB_Y, fitted);
+    }
+
+    // 제목 핵심어 추출
+    private String headline(String title) {
+        String text = title.strip();
+
+        int cut = text.length();
+        for(int i = 0; i < TITLE_SEPARATORS.length(); i++) {
+            int at = text.indexOf(TITLE_SEPARATORS.charAt(i));
+            if(at > 0 && at < cut) {
+                cut = at;
+            }
+        }
+        return text.substring(0, cut).strip();
+    }
+
+    private Fitted fitTitle(String raw) {
+        String text = sanitize(headline(raw));
+
+        int one = largestSize(List.of(text));
+        if(one >= TITLE_ONE_LINE_FLOOR) {
+            return new Fitted(List.of(text), one);
+        }
+
+        List<String> two = splitBalanced(text, TITLE_ONE_LINE_FLOOR, true);
+        if(two.size() == 1) {
+            return new Fitted(List.of(text), one);
+        }
+
+        int size = largestSize(two);
+        return size > one ? new Fitted(two, size) : new Fitted(List.of(text), one);
+    }
+
+    private int largestSize(List<String> lines) {
+        for(int size = TITLE_SIZE; size > TITLE_HARD_MIN; size -= 2) {
+            if(fits(lines, size)) {
+                return size;
+            }
+        }
+        return TITLE_HARD_MIN;
     }
 
     // ASS Dialogue 문자열 생성
@@ -118,35 +162,43 @@ public class AssSubtitleWriter implements SubtitleWriter {
             return new Fitted(List.of(text), baseSize);
         }
 
-        List<String> two = splitBalanced(text);
+        List<String> byWord = splitBalanced(text, baseSize, true);
         for(int size = baseSize; size >= minSize; size -= 4) {
-            int s = size;
-            if(two.stream().allMatch(line -> width(line, s) <= MAX_TEXT_WIDTH)) {
-                return new Fitted(two, size);
+            if(fits(byWord, size)) {
+                return new Fitted(byWord, size);
             }
         }
-        return new Fitted(two, minSize);
+
+        List<String> byChar = splitBalanced(text, baseSize, false);
+        for(int size = minSize - 4; size >= HARD_MIN_SIZE; size -= 4) {
+            if(fits(byChar, size)) {
+                return new Fitted(byChar, size);
+            }
+        }
+        return new Fitted(byChar, HARD_MIN_SIZE);
+    }
+
+    private boolean fits(List<String> lines, int size) {
+        return lines.stream().allMatch(line -> width(line, size) <= MAX_TEXT_WIDTH);
     }
 
     // 균형 잡힌 두 줄 분리
-    private List<String> splitBalanced(String text) {
+    private List<String> splitBalanced(String text, int size, boolean atWordBoundary) {
         List<Integer> candidates = new ArrayList<>();
         for(int i = 1; i < text.length(); i++) {
-            if(text.charAt(i - 1) == ' ') {
+            if(!atWordBoundary || text.charAt(i - 1) == ' ') {
                 candidates.add(i);
             }
         }
         if(candidates.isEmpty()) {
-            for(int i = 1; i < text.length(); i++) {
-                candidates.add(i);
-            }
+            return List.of(text);
         }
 
         int best = candidates.get(0);
         double bestGap = Double.MAX_VALUE;
         for(int i : candidates) {
-            double gap = Math.abs(width(text.substring(0, i).strip(), SUB_SIZE)
-                    - width(text.substring(i).strip(), SUB_SIZE));
+            double gap = Math.abs(width(text.substring(0, i).strip(), size)
+                    - width(text.substring(i).strip(), size));
             if(gap < bestGap) {
                 bestGap = gap;
                 best = i;
