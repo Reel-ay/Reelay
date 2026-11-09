@@ -16,6 +16,10 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.awt.Font;
+import java.awt.font.FontRenderContext;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,6 +31,8 @@ class AssSubtitleWriterTest {
     private LocalStorageService storage;
     private AssSubtitleWriter writer;
     private UUID jobId;
+
+    private static final Pattern FS = Pattern.compile("\\\\fs(\\d+)");
 
     @BeforeEach
     void setUp() {
@@ -111,6 +117,78 @@ class AssSubtitleWriterTest {
         assertThat(Files.size(burned)).isNotEqualTo(Files.size(plain));
     }
 
+    @Test
+    @DisplayName("제목은 구분자 앞까지만 쓴다")
+    void usesHeadlineBeforeSeparator() throws IOException {
+        Path ass = writer.write(jobId, "자동차정비기능사합격률｜필기시험 난이도와 합격 공부방법",
+                List.of(cut(0, "자막", 0, 3000)));
+
+        String title = titleLine(ass).replace("\\N", "");
+        assertThat(title).contains("자동차정비기능사합격률");
+        assertThat(title).doesNotContain("필기시험");
+    }
+
+    @Test
+    @DisplayName("구분자가 없으면 제목을 버리지 않는다")
+    void keepsWholeTitleWithoutSeparator() throws IOException {
+        Path ass = writer.write(jobId, "포스코합격률 포스코 필기시험 임박! 포스코 필기 인강으로 단기 완벽 대비",
+                List.of(cut(0, "자막", 0, 3000)));
+
+        String title = titleLine(ass).replace("\\N", "");
+        assertThat(title).contains("포스코합격률");
+        assertThat(title).contains("단기 완벽 대비");
+    }
+
+    @Test
+    @DisplayName("공백 없는 제목은 쪼개지 않고 한 줄로 둔다")
+    void keepsSingleWordTitleOnOneLine() throws IOException {
+        Path ass = writer.write(jobId, "자동차정비기능사합격률｜필기시험 난이도와 합격 공부방법",
+                List.of(cut(0, "자막", 0, 3000)));
+
+        assertThat(titleLine(ass)).doesNotContain("\\N");
+    }
+
+    @Test
+    @DisplayName("짧은 제목은 공백이 있어도 한 줄로 둔다")
+    void keepsShortTitleOnOneLine() throws IOException {
+        Path ass = writer.write(jobId, "합격률 공부방법", List.of(cut(0, "자막", 0, 3000)));
+
+        String title = titleLine(ass);
+        assertThat(title).doesNotContain("\\N");
+        assertThat(title).contains("합격률 공부방법");
+    }
+
+    @Test
+    @DisplayName("실제 블로그 제목이 모두 세이프존 폭 안에 들어온다")
+    void everyRealTitleFitsSafeZone() throws IOException {
+        List<String> titles = List.of(
+                "자동차정비기능사합격률｜필기시험 난이도와 합격 공부방법",
+                "전산응용기계제도기능사시험후기｜필기·실기 준비와 공부방법",
+                "워드프로세서합격률 높이는 공부방법 | 시험 일정 및 합격률, 강의까지 모두 추천",
+                "식물보호산업기사교재는 이렇게 고르세요 필기실기 일정과 공부 팁",
+                "인디자인독학 실무자들은 이렇게 공부해요",
+                "지역농협6급교재｜NCS 독학 가능할까? 합격 준비 전 알아둘 공부방법");
+
+        for(String title : titles) {
+            UUID id = UUID.randomUUID();
+            storage.prepare(id);
+            Path ass = writer.write(id, title, List.of(cut(0, "자막", 0, 3000)));
+
+            assertThat(maxWidth(ass, ",title,"))
+                    .as("제목 넘침 : %s", title)
+                    .isLessThanOrEqualTo(878.0);
+        }
+    }
+
+    @Test
+    @DisplayName("공백 없는 긴 자막도 세이프존 폭 안에 들어온다")
+    void longCaptionWithoutSpaceFits() throws IOException {
+        Path ass = writer.write(jobId, "제목",
+                List.of(cut(0, "전산응용기계제도기능사시험후기준비", 0, 3000)));
+
+        assertThat(maxWidth(ass, ",sub,")).isLessThanOrEqualTo(878.0);
+    }
+
     private CutInput cut(int cutOrder, String caption, int startMs, int audioMs) {
         return new CutInput(cutOrder, "내레이션", caption, null, null, null, audioMs, startMs, null);
     }
@@ -132,5 +210,35 @@ class AssSubtitleWriterTest {
 
     private List<String> concat(List<String> a, List<String> b) {
         return java.util.stream.Stream.concat(a.stream(), b.stream()).toList();
+    }
+
+    private String titleLine(Path ass) throws IOException {
+        return dialogues(read(ass)).stream()
+                .filter(line -> line.contains(",title,"))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private double maxWidth(Path ass, String style) throws IOException {
+        FontRenderContext frc = new FontRenderContext(null, true, true);
+        Font base = new FontDir().baseFont();
+
+        double max = 0;
+        for(String line : dialogues(read(ass))) {
+            if(!line.contains(style)) {
+                continue;
+            }
+            Matcher m = FS.matcher(line);
+            if(!m.find()) {
+                continue;
+            }
+            Font font = base.deriveFont((float) Integer.parseInt(m.group(1)));
+
+            String body = line.substring(line.lastIndexOf('}') + 1);
+            for(String row : body.split("\\\\N")) {
+                max = Math.max(max, font.getStringBounds(row, frc).getWidth());
+            }
+        }
+        return max;
     }
 }
