@@ -3,6 +3,7 @@ package com.reelay.pipeline.render.service;
 import com.reelay.common.ffmpeg.Ffmpeg;
 import com.reelay.common.font.FontDir;
 import com.reelay.common.storage.StorageService;
+import com.reelay.pipeline.render.enums.KenBurnsVariant;
 import com.reelay.video.dto.CutInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Component
@@ -33,10 +35,17 @@ public class FfmpegRenderer implements VideoRenderer {
 
     private static final String CARD_COLOR = "black";
 
-    private static final String FIT_FILTER =
+    private static final String FIT_HEAD =
             "scale=" + WIDTH + ":" + HEIGHT + ":force_original_aspect_ratio=decrease:out_range=tv"
                     + ",pad=" + WIDTH + ":" + HEIGHT + ":(ow-iw)/2:(oh-ih)/2:black"
-                    + ",fps=" + FPS + ",setsar=1,format=yuv420p";
+                    + ",fps=" + FPS;
+
+    private static final String FIT_TAIL = "setsar=1,format=yuv420p";
+
+    private static final String FIT_FILTER = FIT_HEAD + "," + FIT_TAIL;
+
+    private static final double ZOOM_MAX = 1.06;
+    private static final double PAN_ZOOM = 1.04;
 
     private final Ffmpeg ffmpeg;
     private final StorageService storage;
@@ -91,6 +100,7 @@ public class FfmpegRenderer implements VideoRenderer {
     // 컷 1개 -> 1080*1920 영상
     private Path renderCut(Path tmp, CutInput cut) {
         Path out = tmp.resolve("cut" + cut.cutOrder() + ".mp4");
+        int frames = frameCount(cut.audioMs());
 
         List<String> args = new ArrayList<>();
         if(cut.imagePath() == null) {
@@ -102,8 +112,8 @@ public class FfmpegRenderer implements VideoRenderer {
         }
 
         args.addAll(List.of(
-                "-vf", FIT_FILTER,
-                "-frames:v", String.valueOf(frameCount(cut.audioMs())),
+                "-vf", videoFilter(cut, frames),
+                "-frames:v", String.valueOf(frames),
                 "-r", String.valueOf(FPS),
                 "-c:v", "libx264", "-pix_fmt", "yuv420p",
                 "-preset", "veryfast", "-crf", "18",
@@ -111,6 +121,38 @@ public class FfmpegRenderer implements VideoRenderer {
 
         ffmpeg.run(args, CUT_TIMEOUT);
         return out;
+    }
+
+    private String videoFilter(CutInput cut, int frames) {
+        if(cut.imagePath() == null || cut.kenburns() == null) {
+            return FIT_FILTER;
+        }
+        return FIT_HEAD + "," + zoompan(cut.kenburns(), frames) + "," + FIT_TAIL;
+    }
+
+    private String zoompan(KenBurnsVariant variant, int frames) {
+        int last = Math.max(1, frames - 1);
+        double step = (ZOOM_MAX - 1) / last;
+
+        String centerX = "x='iw/2-(iw/zoom/2)'";
+        String centerY = "y='ih/2-(ih/zoom/2)'";
+
+        String expr = switch(variant) {
+            case ZOOM_IN_CENTER -> "z='min(1+" + num(step) + "*on," + num(ZOOM_MAX) + ")':"
+                    + centerX + ":" + centerY;
+            case ZOOM_OUT_CENTER -> "z='max(" + num(ZOOM_MAX) + "-" + num(step) + "*on,1)':"
+                    + centerX + ":" + centerY;
+            case PAN_LEFT_TO_RIGHT -> "z='" + num(PAN_ZOOM) + "'"
+                    + ":x='(iw-iw/zoom)*(on/" + last + ")':" + centerY;
+            case PAN_TOP_TO_BOTTOM -> "z='" + num(PAN_ZOOM) + "':" + centerX
+                    + ":y='(ih-ih/zoom)*(on/" + last + ")'";
+        };
+
+        return "zoompan=" + expr + ":d=1:s=" + WIDTH + "x" + HEIGHT + ":fps=" + FPS;
+    }
+
+    private String num(double value) {
+        return String.format(Locale.ROOT, "%.6f", value);
     }
 
     // 프레임 수
