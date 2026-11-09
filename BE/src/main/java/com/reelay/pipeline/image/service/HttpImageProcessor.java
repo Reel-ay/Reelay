@@ -110,8 +110,7 @@ public class HttpImageProcessor implements ImageProcessor {
     // 장면별 이미지 및 효과 배정
     private List<CutImage> assign(List<CutDraft> cuts, Map<Integer, Saved> saved) {
         List<CutImage> result = new ArrayList<>();
-        Integer previousIndex = null;
-        KenBurnsVariant previousVariant = null;
+        Map<Integer, Integer> useCount = new HashMap<>();
 
         for(CutDraft cut : cuts) {
             Integer index = cut.sourceImageIndex();
@@ -119,34 +118,24 @@ public class HttpImageProcessor implements ImageProcessor {
 
             if(image == null) {
                 result.add(new CutImage(cut.cutOrder(), null, null));
-                previousIndex = null;
-                previousVariant = null;
                 continue;
             }
 
-            KenBurnsVariant variant = pick(image.ratio(),
-                    index.equals(previousIndex) ? previousVariant : null);
-            result.add(new CutImage(cut.cutOrder(), image.path(), variant, image.ratio()));
-            previousIndex = index;
-            previousVariant = variant;
+            int nth = useCount.merge(index, 1, Integer::sum) - 1;
+            result.add(new CutImage(cut.cutOrder(), image.path(),
+                    pick(image.ratio(), nth), image.ratio()));
         }
         return result;
     }
 
     // Ken Burns 효과 선택
-    private KenBurnsVariant pick(ImageRatio ratio, KenBurnsVariant avoid) {
+    private KenBurnsVariant pick(ImageRatio ratio, int nthUse) {
         List<KenBurnsVariant> order = switch(ratio) {
             case LANDSCAPE -> LANDSCAPE_ORDER;
             case PORTRAIT -> PORTRAIT_ORDER;
             case SQUARE -> SQUARE_ORDER;
         };
-
-        for(KenBurnsVariant variant : order) {
-            if(variant != avoid) {
-                return variant;
-            }
-        }
-        return order.get(0);
+        return order.get(nthUse % order.size());
     }
 
     // 이미지 저장 결과 관리

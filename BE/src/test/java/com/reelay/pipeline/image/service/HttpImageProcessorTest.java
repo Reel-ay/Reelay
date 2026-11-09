@@ -96,14 +96,16 @@ class HttpImageProcessorTest {
     }
 
     @Test
-    @DisplayName("떨어져 있으면 같은 이미지라도 기본 변형을 유지한다")
-    void keepsDefaultVariantWhenNotConsecutive() throws Exception {
+    @DisplayName("같은 이미지를 다시 쓸 때마다 변형을 돌린다")
+    void rotatesVariantOnEveryReuse() throws Exception {
         byte[] bytes = jpeg(800, 600);
         when(downloader.download(URL_0)).thenReturn(Optional.of(bytes));
 
-        List<CutImage> images = processor.process(jobId, URLS, drafts(0, null, 0));
+        List<CutImage> images = processor.process(jobId, URLS, drafts(0, null, 0, 0));
 
-        assertThat(images.get(2).kenburns()).isEqualTo(images.get(0).kenburns());
+        assertThat(images.get(0).kenburns()).isNotNull();
+        assertThat(images.get(2).kenburns()).isNotEqualTo(images.get(0).kenburns());
+        assertThat(images.get(3).kenburns()).isNotEqualTo(images.get(2).kenburns());
     }
 
     @Test
