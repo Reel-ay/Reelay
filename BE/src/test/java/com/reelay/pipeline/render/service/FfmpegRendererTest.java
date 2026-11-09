@@ -17,6 +17,12 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
+import javax.imageio.ImageIO;
+import java.awt.Color;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Offset.offset;
 
@@ -74,6 +80,21 @@ class FfmpegRendererTest {
         assertThat(ffmpeg.probeSeconds(out)).isEqualTo(9.4, offset(0.05));
     }
 
+    @Test
+    @DisplayName("사진 컷과 텍스트 카드가 섞여도 검정이 유지된다")
+    void keepsBlackWhenPhotoAndCardMixed() {
+        List<CutInput> cuts = List.of(
+                cut(0, "966x724", "1"),
+                textCard(1, "1"),
+                cut(2, "966x724", "1"));
+
+        Path out = renderer.render(jobId, cuts, null);
+
+        // 1.5초 = 카드 구간. 좌상단은 사진 컷의 레터박스와 같은 검정이어야 한다
+        assertThat(blackLevelAt(out, 0.5)).isZero();
+        assertThat(blackLevelAt(out, 1.5)).isZero();
+    }
+
     private CutInput cut(int cutOrder, String imageSize, String seconds) {
         return cut(cutOrder, imageSize, seconds, "자막", 0);
     }
@@ -89,5 +110,29 @@ class FfmpegRendererTest {
 
         return new CutInput(cutOrder, "내레이션", caption, "자막",
                 image, audio, ffmpeg.probeMillis(audio), startMs, KenBurnsVariant.ZOOM_IN_CENTER);
+    }
+
+    private CutInput textCard(int cutOrder, String seconds) {
+        Path audio = storage.audioPath(jobId, cutOrder);
+        ffmpeg.run(List.of("-f", "lavfi", "-i", "sine=f=440:d=" + seconds,
+                "-ar", "24000", "-ac", "1", audio.toString()), SETUP_TIMEOUT);
+
+        return new CutInput(cutOrder, "내레이션", "자막", "자막",
+                null, audio, ffmpeg.probeMillis(audio), 0, null);
+    }
+
+    private int blackLevelAt(Path video, double seconds) {
+        Path png = tempDir.resolve("probe" + (int) (seconds * 1000) + ".png");
+        ffmpeg.run(List.of("-ss", String.valueOf(seconds), "-i", video.toString(),
+                "-frames:v", "1", "-vf", "crop=200:200:0:0,scale=1:1",
+                png.toString()), SETUP_TIMEOUT);
+
+        try {
+            BufferedImage frame = ImageIO.read(png.toFile());
+            return new Color(frame.getRGB(0, 0)).getRed();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
