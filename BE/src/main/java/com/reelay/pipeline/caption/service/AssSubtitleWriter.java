@@ -23,7 +23,9 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private static final int HEIGHT = 1920;
 
     private static final int SUB_Y = 1500;
-    private static final int TITLE_Y = 80;
+
+    // 제목 1줄 기준
+    private static final int TITLE_Y = 290;
 
     private static final int SUB_SIZE = 92;
     private static final int SUB_MIN_SIZE = 72;
@@ -41,7 +43,7 @@ public class AssSubtitleWriter implements SubtitleWriter {
 
     public AssSubtitleWriter(StorageService storage, FontDir fontDir) {
         this.storage = storage;
-        this.baseFont = loadFont(fontDir.fontFile());
+        this.baseFont = fontDir.baseFont();
     }
 
     // ASS 자막 파일 생성 및 저장
@@ -181,16 +183,6 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private int totalMs(List<CutInput> cuts) {
         CutInput last = cuts.get(cuts.size() - 1);
         return last.startMs() + last.audioMs();
-    }
-
-    // TTF 폰트 로드
-    private Font loadFont(Path file) {
-        try {
-            return Font.createFont(Font.TRUETYPE_FONT, file.toFile());
-        }
-        catch(Exception e) {
-            throw new IllegalStateException("폰트를 읽지 못함 - " + file, e);
-        }
     }
 
     private record Fitted(List<String> lines, int size) {

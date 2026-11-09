@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.awt.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -23,17 +24,32 @@ public class FontDir {
     private static final List<String> FONTS = List.of("BlackHanSans-Regular.ttf");
 
     private final Path dir;
+    private final Font baseFont;
 
     public FontDir() {
         this.dir = extract();
+        this.baseFont = loadFont();
     }
 
     public Path path() {
         return dir;
     }
 
-    public Path fontFile() {
-        return dir.resolve(FONTS.get(0));
+    public Font baseFont() {
+        return baseFont;
+    }
+
+    private Font loadFont() {
+        String name = FONTS.get(0);
+        try(InputStream in = getClass().getResourceAsStream(CLASSPATH_DIR + name)) {
+            if(in == null) {
+                throw new IllegalStateException("폰트 리소스 없음 - " + CLASSPATH_DIR + name);
+            }
+            return Font.createFont(Font.TRUETYPE_FONT, in);
+        }
+        catch(Exception e) {
+            throw new IllegalStateException("폰트를 읽지 못함 - " + name, e);
+        }
     }
 
     private Path extract() {
