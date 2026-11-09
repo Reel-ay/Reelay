@@ -38,8 +38,8 @@ public class LocalStorageService implements StorageService {
     }
 
     @Override
-    public Path imagePath(UUID jobId, int cutOrder) {
-        return jobDir(jobId).resolve(IMAGES).resolve(cutOrder + IMAGE_EXT);
+    public Path imagePath(UUID jobId, int sourceImageIndex) {
+        return jobDir(jobId).resolve(IMAGES).resolve(sourceImageIndex + IMAGE_EXT);
     }
 
     @Override
