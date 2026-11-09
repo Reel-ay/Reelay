@@ -12,7 +12,7 @@ import java.util.UUID;
 //   {jobId}/tmp/
 public interface StorageService {
 
-    Path imagePath(UUID jobId, int cutOrder);
+    Path imagePath(UUID jobId, int sourceImageIndex);
 
     Path audioPath(UUID jobId, int cutOrder);
 
