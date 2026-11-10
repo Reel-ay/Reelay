@@ -309,7 +309,8 @@ class AssSubtitleWriterTest {
 
     private double maxWidth(Path ass, String style) throws IOException {
         FontRenderContext frc = new FontRenderContext(null, true, true);
-        Font base = new FontDir().baseFont();
+        Font base = new FontDir().font(
+                style.contains("title") ? FontDir.TITLE_FILE : FontDir.SUB_FILE);
 
         double max = 0;
         for(String line : dialogues(read(ass))) {
