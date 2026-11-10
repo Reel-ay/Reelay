@@ -5,6 +5,8 @@ import com.reelay.common.exception.OpenAiTransientException;
 import com.reelay.pipeline.crawl.dto.CrawledPost;
 import com.reelay.pipeline.script.dto.CutDraft;
 import com.reelay.pipeline.script.dto.LlmScript;
+import com.reelay.pipeline.script.dto.Script;
+import com.reelay.video.dto.VideoTitle;
 import com.reelay.pipeline.script.dto.ScriptResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,13 +23,22 @@ public class ScriptService {
     private static final Logger log = LoggerFactory.getLogger(ScriptService.class);
 
     private final ScriptLlmClient llm;
+    private final TitleGenerator titleGenerator;
     private final ScriptValidator validator = new ScriptValidator();
 
-    public ScriptService(ScriptLlmClient llm) {
+    public ScriptService(ScriptLlmClient llm, TitleGenerator titleGenerator) {
         this.llm = llm;
+        this.titleGenerator = titleGenerator;
     }
 
-    public List<CutDraft> generate(CrawledPost post) {
+    // 대본(컷) + 영상 상단 두 줄 제목
+    public Script generate(CrawledPost post) {
+        List<CutDraft> cuts = generateCuts(post);
+        VideoTitle title = titleGenerator.generate(post, cuts);
+        return new Script(title, cuts);
+    }
+
+    private List<CutDraft> generateCuts(CrawledPost post) {
         int imageCount = post.images().size();
         int targetCuts = ScriptRules.targetCuts(post.body().length());
         String system = ScriptPrompts.system(targetCuts);

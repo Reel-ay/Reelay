@@ -16,6 +16,12 @@ public final class ScriptRules {
     // LLM 이 목표보다 적게 줘도 이 정도는 받아준다. 이보다 적으면 대본 실패
     public static final int MIN_CUTS = 3;
 
+    // 영상 제목은 두 줄 (첫 줄 키워드 + 둘째 줄 강조 문구). 줄마다 공백 포함 8자
+    // 세이프존 폭 878px 실측 역산 -> 8자면 폰트 131 까지 들어가 두 줄로도 크게 보인다
+    public static final int MAX_TITLE_LINE_CHARS = 8;
+    // video_title, video_title_hook 컬럼 길이. LLM 이 제약을 어겨도 이 이상은 저장하지 않는다
+    public static final int VIDEO_TITLE_COLUMN_LENGTH = 50;
+
     public static final int MIN_NARRATION_CHARS = 15;
     public static final int MAX_NARRATION_CHARS = 25;
 

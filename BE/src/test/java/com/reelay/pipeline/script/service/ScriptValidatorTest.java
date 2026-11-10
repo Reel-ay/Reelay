@@ -119,4 +119,44 @@ class ScriptValidatorTest {
         assertThat(ScriptRules.length("가 나 다")).isEqualTo(3);
         assertThat(ScriptRules.length(null)).isZero();
     }
+
+    @Test
+    @DisplayName("첫 줄은 물음표·느낌표·따옴표·이모지를 지우고, 둘째 줄은 ?! 를 남긴다")
+    void titleSymbols() {
+        assertThat(ScriptValidator.normalizeTitleLine("\"정보통신기사?!\" 🔥", false)).isEqualTo("정보통신기사");
+        assertThat(ScriptValidator.normalizeTitleLine("모르면 손해! 🔥", true)).isEqualTo("모르면 손해!");
+    }
+
+    @Test
+    @DisplayName("한 줄이 공백 포함 8자를 넘으면 뒤 어절부터 버린다")
+    void titleDropsTrailingWords() {
+        // "클로드 사용법 총정리" = 11자 -> "클로드 사용법" (7자)
+        assertThat(ScriptValidator.normalizeTitleLine("클로드 사용법 총정리", false)).isEqualTo("클로드 사용법");
+        assertThat(ScriptValidator.normalizeTitleLine("TOP9", true)).isEqualTo("TOP9");
+    }
+
+    @Test
+    @DisplayName("한 어절이 8자를 넘으면 자르지 않고 둔다 (자막 쪽 안전망)")
+    void titleKeepsSingleLongWord() {
+        assertThat(ScriptValidator.normalizeTitleLine("전자계산기조직응용기사", false)).isEqualTo("전자계산기조직응용기사");
+    }
+
+
+    @Test
+    @DisplayName("공백·문장부호를 빼고 한쪽이 다른 쪽을 품으면 같은 말로 본다")
+    void sameText() {
+        assertThat(ScriptValidator.isSameText("정보통신기사", "정보통신기사!")).isTrue();
+        assertThat(ScriptValidator.isSameText("정보통신기사", "독학 3단계")).isFalse();
+    }
+
+    @Test
+    @DisplayName("둘째 줄 후보가 원문 제목 단어로만 이루어지면 블로그 문구로 본다")
+    void copiedFromBlogTitle() {
+        String blogTitle = "자동차정비기능사 합격률｜필기시험 난이도와 합격 공부방법";
+        assertThat(ScriptValidator.isCopiedFrom("필기시험", blogTitle)).isTrue();
+        assertThat(ScriptValidator.isCopiedFrom("합격 공부방법", blogTitle)).isTrue();
+        assertThat(ScriptValidator.isCopiedFrom("합격 지름길", blogTitle)).isFalse();
+        assertThat(ScriptValidator.isCopiedFrom("TOP9", blogTitle)).isFalse();
+        assertThat(ScriptValidator.isCopiedFrom("TOP9", null)).isFalse();
+    }
 }

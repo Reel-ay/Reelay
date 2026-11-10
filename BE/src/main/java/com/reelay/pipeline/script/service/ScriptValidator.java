@@ -55,6 +55,101 @@ public class ScriptValidator {
         return new ScriptResult(List.copyOf(cuts), List.copyOf(tooLong));
     }
 
+    // 제목 한 줄 정리
+    // - 따옴표·이모지 등 제목에 맞지 않는 기호를 지우고 공백을 하나로 모은다
+    //   (둘째 줄 강조 문구는 ?! 를 허용한다. 첫 줄 키워드는 명사구라 허용하지 않는다)
+    // - 공백 포함 8자를 넘으면 뒤 어절부터 버린다 (자격증·시험 이름 같은 앞의 주제어를 살린다)
+    // - 한 어절이 8자를 넘으면 그대로 둔다. 자막 쪽(AssSubtitleWriter)의 글자 크기 축소가 안전망이다
+    // - 비었으면 null
+    static String normalizeTitleLine(String raw, boolean allowPunctuation) {
+        String line = cleanTitleLine(raw, allowPunctuation);
+        if (line == null) {
+            return null;
+        }
+
+        String[] words = line.split(" ");
+        StringBuilder fitted = new StringBuilder(words[0]);
+        for (int i = 1; i < words.length; i++) {
+            String next = fitted + " " + words[i];
+            if (titleLength(next) > ScriptRules.MAX_TITLE_LINE_CHARS) {
+                break;
+            }
+            fitted.setLength(0);
+            fitted.append(next);
+        }
+        String result = fitted.toString();
+        if (titleLength(result) > ScriptRules.MAX_TITLE_LINE_CHARS) {
+            log.warn("제목 한 줄이 {}자를 넘습니다 (한 어절): '{}'", ScriptRules.MAX_TITLE_LINE_CHARS, result);
+        }
+        if (titleLength(result) > ScriptRules.VIDEO_TITLE_COLUMN_LENGTH) {
+            result = result.substring(0, result.offsetByCodePoints(0, ScriptRules.VIDEO_TITLE_COLUMN_LENGTH));
+        }
+        return result;
+    }
+
+    // 기호·이모지 제거와 공백 정리만 한다 (길이는 자르지 않음). 비면 null
+    static String cleanTitleLine(String raw, boolean allowPunctuation) {
+        if (isBlank(raw)) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        raw.codePoints().forEach(cp -> {
+            if (Character.isWhitespace(cp)) {
+                sb.append(' ');
+            }
+            else if (isTitleChar(cp) || (allowPunctuation && (cp == '?' || cp == '!'))) {
+                sb.appendCodePoint(cp);
+            }
+        });
+        String line = sb.toString().replaceAll("\\s+", " ").strip();
+        return line.isEmpty() ? null : line;
+    }
+
+    // 공백 포함 글자 수 (화면 폭 기준이라 공백도 센다)
+    static int titleLength(String s) {
+        return s.codePointCount(0, s.length());
+    }
+
+    // 공백·문장부호를 빼고 비교해 한쪽이 다른 쪽을 그대로 품고 있으면 같은 말로 본다
+    static boolean isSameText(String a, String b) {
+        String x = compact(a);
+        String y = compact(b);
+        return !x.isEmpty() && !y.isEmpty() && (x.contains(y) || y.contains(x));
+    }
+
+    // 둘째 줄 후보가 블로그 원문(제목)에서 그대로 따온 말인지
+    // 후보의 모든 어절(2자 이상)이 원문 제목에 들어 있으면 "블로그 문구"로 본다 -> 유입 문구가 아니다
+    static boolean isCopiedFrom(String hook, String source) {
+        if (source == null || source.isBlank()) {
+            return false;
+        }
+        String src = compact(source);
+        boolean anyWord = false;
+        for (String word : hook.split(" ")) {
+            String w = compact(word);
+            if (w.length() < 2) {
+                continue;
+            }
+            anyWord = true;
+            if (!src.contains(w)) {
+                return false;
+            }
+        }
+        return anyWord;
+    }
+
+    private static String compact(String s) {
+        return s == null ? "" : s.replaceAll("[\\s?!·|｜]", "").toLowerCase();
+    }
+
+    // 한글·영문·숫자와 제목에 흔한 기호만 남긴다
+    private static boolean isTitleChar(int cp) {
+        if (Character.isLetterOrDigit(cp)) {
+            return true;
+        }
+        return "·-&+#%()".indexOf(cp) >= 0;
+    }
+
     // caption 안에 실제로 없으면 null. B 가 강조 태그 위치를 못 찾는 사고를 막는다
     static String normalizeHighlight(String caption, String highlight) {
         if (isBlank(highlight)) {
