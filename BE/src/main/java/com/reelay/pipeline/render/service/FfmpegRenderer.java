@@ -33,9 +33,22 @@ public class FfmpegRenderer implements VideoRenderer {
 
     private static final String CARD_COLOR = "black";
 
+    // 사진 띠: 화면 가운데 y 490~1430 (1080x940) 고정. 위는 제목, 띠 안 아래쪽에 자막이 겹친다
+    private static final int BAND_Y = 490;
+    private static final int BAND_HEIGHT = 940;
+    private static final int BLUR_RADIUS = 20;
+
+    // 사진 비율과 상관없이 항상 같은 띠 안에 넣는다
+    // - 배경: 사진을 띠에 꽉 차게 키워 자른 뒤 흐리게 (cover + blur)
+    // - 전경: 사진 전체가 보이도록 띠 안에 맞춤 (contain). 가로 배너도 잘리지 않는다
+    // - 띠 밖은 검정
     private static final String FIT_FILTER =
-            "scale=" + WIDTH + ":" + HEIGHT + ":force_original_aspect_ratio=decrease:out_range=tv"
-                    + ",pad=" + WIDTH + ":" + HEIGHT + ":(ow-iw)/2:(oh-ih)/2:black"
+            "split[bg][fg]"
+                    + ";[bg]scale=" + WIDTH + ":" + BAND_HEIGHT + ":force_original_aspect_ratio=increase:out_range=tv"
+                    + ",crop=" + WIDTH + ":" + BAND_HEIGHT + ",boxblur=" + BLUR_RADIUS + ":2[blur]"
+                    + ";[fg]scale=" + WIDTH + ":" + BAND_HEIGHT + ":force_original_aspect_ratio=decrease:out_range=tv[img]"
+                    + ";[blur][img]overlay=(W-w)/2:(H-h)/2"
+                    + ",pad=" + WIDTH + ":" + HEIGHT + ":0:" + BAND_Y + ":black"
                     + ",fps=" + FPS + ",setsar=1,format=yuv420p";
 
     private final Ffmpeg ffmpeg;

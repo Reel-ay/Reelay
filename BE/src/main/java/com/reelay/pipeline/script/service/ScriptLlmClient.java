@@ -5,6 +5,7 @@ import com.reelay.common.exception.ErrorCode;
 import com.reelay.common.exception.OpenAiErrors;
 import com.reelay.common.exception.OpenAiTransientException;
 import com.reelay.pipeline.script.dto.LlmScript;
+import com.reelay.pipeline.script.dto.LlmTitle;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
@@ -38,5 +39,20 @@ public class ScriptLlmClient {
             throw new BusinessException(ErrorCode.SCRIPT_FAILED);
         }
         return result;
+    }
+
+    // 영상 상단 두 줄 제목 (대본과 따로 1회 호출, 약 0.5원)
+    @Retryable(includes = OpenAiTransientException.class, maxRetries = 3, delay = 1000, multiplier = 2)
+    public LlmTitle callTitle(String systemPrompt, String userPrompt) {
+        try {
+            return chatClient.prompt()
+                    .system(systemPrompt)
+                    .user(userPrompt)
+                    .call()
+                    .entity(LlmTitle.class);
+        }
+        catch (RuntimeException e) {
+            throw OpenAiErrors.translate(e, ErrorCode.SCRIPT_FAILED);
+        }
     }
 }

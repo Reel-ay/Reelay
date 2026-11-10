@@ -40,6 +40,14 @@ public class VideoJob {
     @Column(name = "title", length = 500)
     private String title;
 
+    // 영상 상단 두 줄 제목 (SCRIPT 단계 LLM 생성). title(블로그 원문)과 별개
+    // 원문 title 은 FE 표시와 다운로드 파일명이 쓰므로 덮어쓰지 않는다
+    @Column(name = "video_title", length = 50)
+    private String videoTitle;        // 첫 줄: 핵심 키워드
+
+    @Column(name = "video_title_hook", length = 50)
+    private String videoTitleHook;    // 둘째 줄: 강조 문구
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private JobStatus status;
@@ -91,6 +99,12 @@ public class VideoJob {
 
     public void updateTitle(String title) {
         this.title = title;
+        touch();
+    }
+
+    public void updateVideoTitle(String keyword, String hook) {
+        this.videoTitle = keyword;
+        this.videoTitleHook = hook;
         touch();
     }
 

@@ -12,10 +12,12 @@ import com.reelay.pipeline.image.dto.CutImage;
 import com.reelay.pipeline.image.service.ImageProcessor;
 import com.reelay.pipeline.render.service.VideoRenderer;
 import com.reelay.pipeline.script.dto.CutDraft;
+import com.reelay.pipeline.script.dto.Script;
 import com.reelay.pipeline.script.service.ScriptService;
 import com.reelay.pipeline.tts.dto.CutAudio;
 import com.reelay.pipeline.tts.service.TtsService;
 import com.reelay.video.dto.CutInput;
+import com.reelay.video.dto.VideoTitle;
 import com.reelay.video.entity.VideoScene;
 import com.reelay.video.enums.StepType;
 import com.reelay.video.service.JobProgressRecorder;
@@ -101,7 +103,10 @@ public class VideoPipeline {
             CrawledPost post = step(jobId, StepType.CRAWL, () -> crawler.crawl(sourceUrl));
             recorder.updateTitle(jobId, post.title());
 
-            List<CutDraft> drafts = step(jobId, StepType.SCRIPT, () -> scriptService.generate(post));
+            Script script = step(jobId, StepType.SCRIPT, () -> scriptService.generate(post));
+            List<CutDraft> drafts = script.cuts();
+            recorder.updateVideoTitle(jobId, script.videoTitle());
+            VideoTitle headline = headlineOf(script, post);
 
             List<CutImage> images = step(jobId, StepType.IMAGE, () -> processImages(jobId, post, drafts));
 
@@ -110,7 +115,7 @@ public class VideoPipeline {
             List<CutInput> cuts = assemble(drafts, images, audios);
 
             Path subtitle = step(jobId, StepType.CAPTION, () -> required(subtitleWriter, "SubtitleWriter")
-                    .write(jobId, post.title(), cuts));
+                    .writeWithTitle(jobId, headline, cuts));
 
             Path output = step(jobId, StepType.RENDER, () -> render(jobId, cuts, subtitle));
 
@@ -238,6 +243,15 @@ public class VideoPipeline {
             startMs += audio.audioMs();
         }
         return cuts;
+    }
+
+    // 영상 상단 제목: LLM 이 만든 두 줄 제목, 없으면 블로그 원문 제목 한 줄
+    static VideoTitle headlineOf(Script script, CrawledPost post) {
+        VideoTitle videoTitle = script.videoTitle();
+        if (videoTitle != null && videoTitle.keyword() != null && !videoTitle.keyword().isBlank()) {
+            return videoTitle;
+        }
+        return VideoTitle.singleLine(post.title());
     }
 
     private static List<CutImage> textCards(List<CutDraft> drafts) {

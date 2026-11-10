@@ -57,7 +57,8 @@ public final class ScriptPrompts {
 
     public static String user(CrawledPost post) {
         StringBuilder sb = new StringBuilder();
-        sb.append("[제목]\n").append(post.title()).append("\n\n");
+        String title = post.title() == null || post.title().isBlank() ? "(제목 없음)" : post.title();
+        sb.append("[제목]\n").append(title).append("\n\n");
 
         sb.append("[이미지 목록] 총 ").append(post.images().size()).append("장\n");
         if (post.images().isEmpty()) {
