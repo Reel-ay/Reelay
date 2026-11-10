@@ -264,24 +264,32 @@ public class AssSubtitleWriter implements SubtitleWriter {
     // 줄바꿈 및 글자 크기 조정
     private Fitted fit(String raw, int baseSize, int minSize) {
         String text = sanitize(raw);
-        if(width(text, baseSize, subFont) <= MAX_TEXT_WIDTH) {
-            return new Fitted(List.of(text), baseSize);
+        for(int size = baseSize; size >= minSize; size -= 2) {
+            if(subFits(List.of(text), size)) {
+                return new Fitted(List.of(text), size);
+            }
         }
 
         List<String> byWord = splitBalanced(text, baseSize, true, subFont);
         for(int size = baseSize; size >= minSize; size -= 4) {
-            if(fits(byWord, size, subFont)) {
+            if(subFits(byWord, size)) {
                 return new Fitted(byWord, size);
             }
         }
 
         List<String> byChar = splitBalanced(text, baseSize, false, subFont);
         for(int size = minSize - 4; size >= HARD_MIN_SIZE; size -= 4) {
-            if(fits(byChar, size, subFont)) {
+            if(subFits(byChar, size)) {
                 return new Fitted(byChar, size);
             }
         }
         return new Fitted(byChar, HARD_MIN_SIZE);
+    }
+
+    private boolean subFits(List<String> lines, int size) {
+        double limit = MAX_TEXT_WIDTH - SUB_BOX_PADDING * 2;
+        return lines.stream()
+                .allMatch(line -> width(line, size, subFont) * INK_WIDTH_RATIO <= limit);
     }
 
     private boolean fits(List<String> lines, int size, Font font) {
