@@ -2,6 +2,7 @@ package com.reelay.video.service;
 
 import com.reelay.common.exception.BusinessException;
 import com.reelay.common.exception.ErrorCode;
+import com.reelay.video.dto.VideoTitle;
 import com.reelay.video.entity.VideoJob;
 import com.reelay.video.entity.VideoJobStep;
 import com.reelay.video.entity.VideoScene;
@@ -56,6 +57,14 @@ public class JobProgressRecorder {
     @Transactional
     public void updateTitle(UUID jobId, String title) {
         getJob(jobId).updateTitle(title);
+    }
+
+    @Transactional
+    public void updateVideoTitle(UUID jobId, VideoTitle videoTitle) {
+        if (videoTitle == null) {
+            return;
+        }
+        getJob(jobId).updateVideoTitle(videoTitle.keyword(), videoTitle.hook());
     }
 
     // 단계 실패 = job 전체 실패 (중간 산출물에서 재개하지 않는다)
