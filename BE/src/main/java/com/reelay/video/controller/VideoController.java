@@ -69,7 +69,9 @@ public class VideoController {
 
     // 2. 상태·결과·실패 조회. 실패한 job 도 200
     @Operation(summary = "상태·결과 조회",
-            description = "steps는 항상 6개, scenes는 DONE일 때만. 변환 실패도 200 -> status와 error로 판단할 것. StepStatus에 FAILED 없음")
+            description = "steps는 항상 6개, scenes는 DONE일 때만. 변환 실패도 200 -> status와 error로 판단할 것. StepStatus에 FAILED 없음\n\n"
+                    + "title = 블로그 원문 제목(화면 표시·파일명), videoTitle = 영상 상단 두 줄 제목"
+                    + "(keyword 흰 글씨 / hook 노란 형광펜, SCRIPT 완료 후부터, 실패 시 null)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "실패한 job도 여기로"),
             @ApiResponse(responseCode = "404", description = "JOB_NOT_FOUND. UUID 형식 아닌 경우 포함",
