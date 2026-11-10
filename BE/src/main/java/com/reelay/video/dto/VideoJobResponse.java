@@ -5,6 +5,7 @@ import com.reelay.video.entity.VideoJob;
 import com.reelay.video.entity.VideoJobStep;
 import com.reelay.video.entity.VideoScene;
 import com.reelay.video.enums.JobStatus;
+import com.reelay.video.enums.SourceType;
 import com.reelay.video.enums.StepStatus;
 import com.reelay.video.enums.StepType;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,7 +17,8 @@ import java.util.UUID;
 // GET /api/videos/{jobId} 응답. 진행 화면과 결과 화면이 이 응답 하나로 그려진다
 // - steps[]  항상 6개 (진행 화면 체크리스트)
 // - scenes[] DONE 일 때만, cutOrder 순
-// - title    CRAWL 완료 후부터 (그 전 null). 블로그 원문 제목
+// - sourceType BLOG(블로그 URL) / MANUAL(본문 직접 입력). MANUAL 은 sourceUrl 이 null
+// - title    CRAWL 완료 후부터 (그 전 null). 블로그 원문 제목 (MANUAL 자동 생성이면 SCRIPT 후 생성 제목 첫 줄)
 // - videoTitle SCRIPT 완료 후부터 (그 전 null). 영상 상단 두 줄 제목
 // - error    FAILED 일 때만. 실패도 HTTP 200 (조회는 성공, 실패는 데이터)
 public record VideoJobResponse(
@@ -24,8 +26,12 @@ public record VideoJobResponse(
         JobStatus status,
         StepType currentStep,
         List<StepResponse> steps,
+        @Schema(description = "BLOG = 블로그 URL 로 만든 영상, MANUAL = 본문 직접 입력으로 만든 영상")
+        SourceType sourceType,
+        @Schema(description = "블로그 글 주소. MANUAL 이면 null")
         String sourceUrl,
-        @Schema(description = "블로그 원문 제목. 화면 표시·다운로드 파일명용. CRAWL 완료 전 null",
+        @Schema(description = "글 제목. 화면 표시·다운로드 파일명용. BLOG = 블로그 원문 제목(CRAWL 완료 후),"
+                + " MANUAL 직접 작성 = 입력한 첫 줄, MANUAL 자동 생성 = 생성된 첫 줄(SCRIPT 완료 후). 그 전에는 null",
                 example = "자동차정비기능사 합격률｜필기시험 난이도와 합격 공부방법")
         String title,
         @Schema(description = "영상 상단에 고정으로 뜨는 두 줄 제목 (LLM 생성). SCRIPT 완료 전이나 생성 실패 시 null"
@@ -96,12 +102,15 @@ public record VideoJobResponse(
     public record ErrorBody(
             @Schema(description = "실패 원인 코드",
                     allowableValues = {"INVALID_URL", "SOURCE_URL_TOO_LONG", "CRAWL_EMPTY_BODY",
+                            "BODY_REQUIRED", "BODY_TOO_SHORT", "BODY_TOO_LONG", "INVALID_TITLE_MODE",
+                            "TITLE_REQUIRED", "TITLE_TOO_LONG", "TOO_MANY_IMAGES", "INVALID_IMAGE",
+                            "IMAGE_TOO_LARGE",
                             "JOB_NOT_FOUND", "SCENE_NOT_FOUND", "SCENE_HAS_NO_IMAGE", "FILE_NOT_FOUND",
                             "JOB_NOT_READY", "CRAWL_FAILED", "SCRIPT_FAILED", "TTS_FAILED",
                             "RENDER_FAILED", "SERVER_RESTARTED", "INTERNAL_ERROR"})
             String code,
             String message,
-            @Schema(description = "true면 같은 URL로 재시도, false면 다른 글 필요")
+            @Schema(description = "true면 같은 입력으로 재시도, false면 다른 글 필요")
             boolean retryable,
             String sourceUrl
     ) {
@@ -116,6 +125,7 @@ public record VideoJobResponse(
                 job.getStatus(),
                 job.getCurrentStep(),
                 steps.stream().map(StepResponse::from).toList(),
+                job.getSourceType(),
                 job.getSourceUrl(),
                 job.getTitle(),
                 VideoTitleBody.of(job),

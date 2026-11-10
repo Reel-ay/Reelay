@@ -29,16 +29,19 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 // 영상 API 4개. 인증 없음 - jobId(UUID v4)를 아는 사람이 소유자
-@Tag(name = "영상", description = "네이버 블로그 글을 9:16 쇼츠로 변환")
+@Tag(name = "영상", description = "네이버 블로그 글 또는 직접 입력한 본문·사진을 9:16 쇼츠로 변환")
 @RestController
 @RequestMapping("/api/videos")
 public class VideoController {
@@ -67,10 +70,51 @@ public class VideoController {
                 .body(new CreateVideoResponse(jobId));
     }
 
+    // 1-2. 본문 직접 입력으로 영상 생성 요청 (블로그 글이 없을 때)
+    // multipart/form-data. 본문 필수, 제목은 직접 작성(MANUAL) / 자동 생성(AUTO) 중 선택, 사진은 선택
+    // 이후 흐름(202 -> GET 폴링 -> 파일)은 블로그 URL 요청과 같다
+    @Operation(summary = "영상 생성 요청 (본문 직접 입력)",
+            description = "블로그 글 없이 홈페이지에서 본문·사진을 직접 넣어 쇼츠를 만든다. multipart/form-data\n\n"
+                    + "- body: 필수. 100~20,000자. 줄바꿈 기준으로 문단을 나눈다\n"
+                    + "- titleMode: 필수. MANUAL = 제목 직접 작성, AUTO = 본문 기반 자동 생성(두 줄 제목)\n"
+                    + "- title / titleHook: MANUAL 일 때 영상 상단 첫 줄(흰 글씨) / 둘째 줄(노란 형광펜). "
+                    + "title 필수, titleHook 선택(없으면 한 줄 제목). 줄마다 20자 이내, 화면 권장 8자. AUTO 면 무시\n"
+                    + "- images: 선택. JPG·PNG, 최대 10장, 한 장 10MB·합계 50MB. 올린 순서대로 본문에 고르게 배치. "
+                    + "없으면 텍스트 카드로 진행\n\n"
+                    + "202+jobId 즉시 반환. 이후 GET /api/videos/{jobId} 폴링은 블로그 요청과 동일 (sourceType=MANUAL, sourceUrl=null)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "202", description = "접수됨"),
+            @ApiResponse(responseCode = "400",
+                    description = "BODY_REQUIRED, BODY_TOO_SHORT, BODY_TOO_LONG, INVALID_TITLE_MODE, "
+                            + "TITLE_REQUIRED, TITLE_TOO_LONG, TOO_MANY_IMAGES, INVALID_IMAGE",
+                    content = @Content(schema = @Schema(implementation = ErrorBody.class))),
+            @ApiResponse(responseCode = "413", description = "IMAGE_TOO_LARGE",
+                    content = @Content(schema = @Schema(implementation = ErrorBody.class)))
+    })
+    @PostMapping(value = "/manual", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CreateVideoResponse> createManual(
+            @Parameter(description = "본문 (필수, 100~20,000자)", required = true)
+            @RequestParam(required = false) String body,
+            @Parameter(description = "제목 방식 (필수)", required = true,
+                    schema = @Schema(allowableValues = {"MANUAL", "AUTO"}))
+            @RequestParam(required = false) String titleMode,
+            @Parameter(description = "MANUAL 일 때 필수. 영상 상단 첫 줄", example = "제주 한달살기")
+            @RequestParam(required = false) String title,
+            @Parameter(description = "MANUAL 일 때 선택. 영상 상단 둘째 줄(노란 형광펜)", example = "비용 총정리")
+            @RequestParam(required = false) String titleHook,
+            @Parameter(description = "사진 (선택, JPG·PNG 최대 10장)")
+            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
+        UUID jobId = videoJobService.createManual(body, titleMode, title, titleHook, images);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .location(URI.create("/api/videos/" + jobId))
+                .body(new CreateVideoResponse(jobId));
+    }
+
     // 2. 상태·결과·실패 조회. 실패한 job 도 200
     @Operation(summary = "상태·결과 조회",
             description = "steps는 항상 6개, scenes는 DONE일 때만. 변환 실패도 200 -> status와 error로 판단할 것. StepStatus에 FAILED 없음\n\n"
-                    + "title = 블로그 원문 제목(화면 표시·파일명), videoTitle = 영상 상단 두 줄 제목"
+                    + "sourceType = BLOG(블로그 URL) / MANUAL(본문 직접 입력, sourceUrl null)\n\n"
+                    + "title = 글 제목(화면 표시·파일명), videoTitle = 영상 상단 두 줄 제목"
                     + "(keyword 흰 글씨 / hook 노란 형광펜, SCRIPT 완료 후부터, 실패 시 null)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "실패한 job도 여기로"),
