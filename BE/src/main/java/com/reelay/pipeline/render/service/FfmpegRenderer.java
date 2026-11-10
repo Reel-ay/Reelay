@@ -1,6 +1,7 @@
 package com.reelay.pipeline.render.service;
 
 import com.reelay.common.ffmpeg.Ffmpeg;
+import com.reelay.common.brand.BrandAssets;
 import com.reelay.common.font.FontDir;
 import com.reelay.common.storage.StorageService;
 import com.reelay.video.dto.CutInput;
@@ -33,10 +34,13 @@ public class FfmpegRenderer implements VideoRenderer {
 
     private static final String CARD_COLOR = "black";
 
-    // 사진 띠: 화면 가운데 y 490~1430 (1080x940) 고정. 위는 제목, 띠 안 아래쪽에 자막이 겹친다
-    private static final int BAND_Y = 490;
+    // 사진 띠: y 440~1380 (1080x940) 고정. 위는 제목, 띠 안 아래쪽에 자막이 겹친다
+    private static final int BAND_Y = 440;
     private static final int BAND_HEIGHT = 940;
     private static final int BLUR_RADIUS = 20;
+
+    private static final int SAFE_BOTTOM = 1540;
+    private static final int LOGO_WIDTH = 350;
 
     // 사진 비율과 상관없이 항상 같은 띠 안에 넣는다
     // - 배경: 사진을 띠에 꽉 차게 키워 자른 뒤 흐리게 (cover + blur)
@@ -54,11 +58,14 @@ public class FfmpegRenderer implements VideoRenderer {
     private final Ffmpeg ffmpeg;
     private final StorageService storage;
     private final FontDir fontDir;
+    private final BrandAssets brandAssets;
 
-    public FfmpegRenderer(Ffmpeg ffmpeg, StorageService storage, FontDir fontDir) {
+    public FfmpegRenderer(Ffmpeg ffmpeg, StorageService storage, FontDir fontDir,
+                          BrandAssets brandAssets) {
         this.ffmpeg = ffmpeg;
         this.storage = storage;
         this.fontDir = fontDir;
+        this.brandAssets = brandAssets;
     }
 
     // 영상 조립
@@ -158,10 +165,18 @@ public class FfmpegRenderer implements VideoRenderer {
     // 자막 파일 -> 영상
     private Path burnSubtitles(Path tmp, Path video, Path subtitleFile) {
         Path out = tmp.resolve("subbed.mp4");
+
+        String filter = "[1:v]scale=" + LOGO_WIDTH + ":-1[lg]"
+                + ";[0:v][lg]overlay=(W-w)/2:'" + BAND_Y + "+" + BAND_HEIGHT
+                + "+(" + (SAFE_BOTTOM - BAND_Y - BAND_HEIGHT) + "-h)/2'"
+                + ",ass=" + Ffmpeg.filterPath(subtitleFile)
+                + ":fontsdir=" + Ffmpeg.filterPath(fontDir.path()) + "[v]";
+
         ffmpeg.run(List.of(
                 "-i", video.toString(),
-                "-vf", "ass=" + Ffmpeg.filterPath(subtitleFile) +
-                        ":fontsdir=" + Ffmpeg.filterPath(fontDir.path()),
+                "-i", brandAssets.logo().toString(),
+                "-filter_complex", filter,
+                "-map", "[v]",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p",
                 "-preset", "medium", "-crf", "20",
                 "-r", String.valueOf(FPS),

@@ -1,6 +1,7 @@
 package com.reelay.pipeline.render.service;
 
 import com.reelay.common.ffmpeg.Ffmpeg;
+import com.reelay.common.brand.BrandAssets;
 import com.reelay.common.font.FontDir;
 import com.reelay.common.storage.LocalStorageService;
 import com.reelay.pipeline.caption.service.AssSubtitleWriter;
@@ -43,7 +44,7 @@ class FfmpegRendererTest {
         ffmpeg = new Ffmpeg("ffmpeg", "ffprobe");
         storage = new LocalStorageService(tempDir.toString());
         // storage = new LocalStorageService("C:/Reelay_work/render/see");
-        renderer = new FfmpegRenderer(ffmpeg, storage, new FontDir());
+        renderer = new FfmpegRenderer(ffmpeg, storage, new FontDir(), new BrandAssets());
         jobId = UUID.randomUUID();
         storage.prepare(jobId);
     }
