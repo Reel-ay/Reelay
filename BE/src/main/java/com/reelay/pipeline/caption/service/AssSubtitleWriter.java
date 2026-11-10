@@ -23,10 +23,7 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private static final int WIDTH = 1080;
     private static final int HEIGHT = 1920;
 
-    private static final int SUB_Y = 1395;
-
-    // 제목 1줄 기준
-    private static final int TITLE_Y = 290;
+    private static final int SUB_BOTTOM_GAP = 50;
 
     private static final int SUB_SIZE = 92;
     private static final int SUB_MIN_SIZE = 72;
@@ -35,21 +32,33 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private static final int TITLE_HARD_MIN = 56;
     private static final String TITLE_SEPARATORS = "｜|【】[]";
 
-    private static final int TITLE_TWO_LINE_Y = 150;
-    private static final int TITLE_TWO_LINE_MAX_SIZE = 116;
-    private static final double TITLE_LINE_HEIGHT = 1.2;
+    private static final int TITLE_TWO_LINE_MAX_SIZE = 120;
+    private static final double TITLE_LINE_HEIGHT = 0.95;
     private static final int HOOK_BOX_PADDING = 14;
-    private static final String HOOK_BOX_COLOR = "&H0018C5F5";
-    private static final String HOOK_TEXT_COLOR = "&H00111111";
+    private static final String HOOK_BOX_COLOR = "&H003C3CE6";
+    private static final String HOOK_TEXT_COLOR = "&H00FFFFFF";
     private static final String SUB_BOX_COLOR = "&H40000000";
+    private static final int SUB_BOX_PADDING = 6;
 
     private static final String HIGHLIGHT_COLOR = "&H0018C5F5&";
     private static final String DEFAULT_COLOR = "&H00FFFFFF&";
 
     private static final int SAFE_LEFT = 100;
-    private static final int SAFE_RIGHT = 978;
+    private static final int SAFE_RIGHT = 980;
+    private static final int SAFE_TOP = 150;
     private static final int MAX_TEXT_WIDTH = SAFE_RIGHT - SAFE_LEFT;
     private static final int HARD_MIN_SIZE = 60;
+
+    private static final int BAND_TOP = 440;
+    private static final int BAND_BOTTOM = 1380;
+    private static final int TITLE_GAP_ONE = 90;
+    private static final int TITLE_GAP_TWO = 50;
+    private static final String TITLE_SLANT = "-0.26";
+
+    private static final double INK_TOP_RATIO = 0.125;
+    private static final double INK_HEIGHT_RATIO = 0.75;
+    private static final double INK_WIDTH_RATIO = 0.866;
+    private static final double SLANT_CENTER_RATIO = 0.13;
 
     private static final FontRenderContext FRC = new FontRenderContext(null, true, true);
 
@@ -82,16 +91,17 @@ public class AssSubtitleWriter implements SubtitleWriter {
                 [V4+ Styles]
                 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
                 Style: title,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,0,0,0,1
-                Style: sub,%s,%d,&H00FFFFFF,&H000000FF,%s,%s,0,0,0,0,100,100,0,0,4,6,0,2,0,0,0,1
-                Style: titlehook,%s,%d,%s,&H000000FF,%s,%s,0,0,0,0,100,100,0,0,3,%d,0,8,0,0,0,1
+                Style: sub,%s,%d,&H00FFFFFF,&H000000FF,%s,%s,0,0,0,0,100,100,0,0,4,%d,0,2,0,0,0,1
+                Style: titlehook,%s,%d,%s,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,8,0,0,0,1
+                Style: hookbox,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 
                 [Events]
                 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 """.formatted(WIDTH, HEIGHT,
                 FontDir.TITLE_FAMILY, TITLE_SIZE,
-                FontDir.SUB_FAMILY, SUB_SIZE, SUB_BOX_COLOR, SUB_BOX_COLOR,
-                FontDir.TITLE_FAMILY, TITLE_SIZE, HOOK_TEXT_COLOR, HOOK_BOX_COLOR,
-                HOOK_BOX_COLOR, HOOK_BOX_PADDING);
+                FontDir.SUB_FAMILY, SUB_SIZE, SUB_BOX_COLOR, SUB_BOX_COLOR, SUB_BOX_PADDING,
+                FontDir.TITLE_FAMILY, TITLE_SIZE, HOOK_TEXT_COLOR,
+                FontDir.TITLE_FAMILY, TITLE_SIZE);
     }
 
     @Override
@@ -123,10 +133,36 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private String twoLineTitle(VideoTitle title, int totalMs) {
         String first = sanitize(title.keyword());
         String second = sanitize(title.hook());
+
         int size = Math.min(TITLE_TWO_LINE_MAX_SIZE, largestSize(List.of(first, second + "  ")));
-        int secondY = TITLE_TWO_LINE_Y + (int) Math.round(size * TITLE_LINE_HEIGHT) + HOOK_BOX_PADDING;
-        return dialogue("title", 0, totalMs, TITLE_TWO_LINE_Y, new Fitted(List.of(first), size), null)
+        while(size > TITLE_HARD_MIN && twoLineTop(size) < SAFE_TOP) {
+            size -= 2;
+        }
+
+        int top = twoLineTop(size);
+        int secondY = top + lineHeight(size) + HOOK_BOX_PADDING;
+        return dialogue("title", 0, totalMs, top, new Fitted(List.of(first), size), null)
+                + hookBox(second, size, secondY, totalMs)
                 + dialogue("titlehook", 0, totalMs, secondY, new Fitted(List.of(second), size), null);
+    }
+
+    private String hookBox(String text, int size, int y, int totalMs) {
+        int w = (int) Math.round(width(text, size, titleFont) * INK_WIDTH_RATIO) + HOOK_BOX_PADDING * 2;
+        int h = (int) Math.round(size * INK_HEIGHT_RATIO) + HOOK_BOX_PADDING * 2;
+        int x = (WIDTH - w) / 2 - (int) Math.round(size * SLANT_CENTER_RATIO);
+        int boxY = y + (int) Math.round(size * INK_TOP_RATIO) - HOOK_BOX_PADDING;
+
+        return "Dialogue: 0,%s,%s,hookbox,,0,0,0,,{\\pos(%d,%d)\\p1\\c%s&\\bord0}m 0 0 l %d 0 %d %d 0 %d{\\p0}%n"
+                .formatted(time(0), time(totalMs), x, boxY, HOOK_BOX_COLOR, w, w, h, h);
+    }
+
+    private int twoLineTop(int size) {
+        return BAND_TOP - TITLE_GAP_TWO - lineHeight(size) - HOOK_BOX_PADDING * 2
+                - (int) Math.round(size * (INK_TOP_RATIO + INK_HEIGHT_RATIO));
+    }
+
+    private int lineHeight(int size) {
+        return (int) Math.round(size * TITLE_LINE_HEIGHT);
     }
 
     // 영상 전체 제목 생성
@@ -134,7 +170,10 @@ public class AssSubtitleWriter implements SubtitleWriter {
         if(title == null || title.isBlank()) {
             return "";
         }
-        return dialogue("title", 0, totalMs, TITLE_Y, fitTitle(title), null);
+        Fitted fitted = fitTitle(title);
+        int block = lineHeight(fitted.size()) * fitted.lines().size();
+        int top = Math.max(SAFE_TOP, BAND_TOP - TITLE_GAP_ONE - block);
+        return dialogue("title", 0, totalMs, top, fitted, null);
     }
 
     // 컷별 자막 생성
@@ -143,8 +182,8 @@ public class AssSubtitleWriter implements SubtitleWriter {
             return "";
         }
         Fitted fitted = fit(cut.caption(), SUB_SIZE, SUB_MIN_SIZE);
-        return dialogue("sub", cut.startMs(), cut.startMs() + cut.audioMs(), SUB_Y, fitted,
-                cut.highlight());
+        return dialogue("sub", cut.startMs(), cut.startMs() + cut.audioMs(),
+                BAND_BOTTOM - SUB_BOTTOM_GAP, fitted, cut.highlight());
     }
 
     // 제목 핵심어 추출
@@ -195,9 +234,11 @@ public class AssSubtitleWriter implements SubtitleWriter {
             painted.add(paint(line, highlight));
         }
 
+        String slant = style.startsWith("title") ? "\\fax" + TITLE_SLANT : "";
         String text = String.join("\\N", painted);
-        return "Dialogue: 0,%s,%s,%s,,0,0,0,,{\\pos(%d,%d)\\fs%d}%s%n"
-                .formatted(time(startMs), time(endMs), style, WIDTH / 2, y, fitted.size(), text);
+        return "Dialogue: 0,%s,%s,%s,,0,0,0,,{\\pos(%d,%d)\\fs%d%s}%s%n"
+                .formatted(time(startMs), time(endMs), style, WIDTH / 2, y, fitted.size(),
+                        slant, text);
     }
 
     private String paint(String line, String highlight) {
