@@ -4,6 +4,7 @@ import com.reelay.common.ffmpeg.Ffmpeg;
 import com.reelay.common.font.FontDir;
 import com.reelay.common.storage.LocalStorageService;
 import com.reelay.video.dto.CutInput;
+import com.reelay.video.dto.VideoTitle;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,41 @@ class AssSubtitleWriterTest {
         writer = new AssSubtitleWriter(storage, new FontDir());
         jobId = UUID.randomUUID();
         storage.prepare(jobId);
+    }
+
+    @Test
+    @DisplayName("두 줄 제목: 첫 줄은 흰 글씨, 둘째 줄은 형광펜 박스 스타일로 같은 크기의 Dialogue 2개를 만든다")
+    void writesTwoLineTitle() throws IOException {
+        Path ass = writer.writeWithTitle(jobId, new VideoTitle("클로드 사용법", "TOP9"),
+                List.of(cut(0, "자막", 0, 3000)));
+
+        String text = read(ass);
+        assertThat(text).contains("Style: titlehook,");
+
+        String first = dialogues(text).stream().filter(l -> l.contains(",title,")).findFirst().orElseThrow();
+        String second = dialogues(text).stream().filter(l -> l.contains(",titlehook,")).findFirst().orElseThrow();
+        assertThat(first).endsWith("클로드 사용법");
+        assertThat(second).endsWith("TOP9");
+        // 글자색을 바꾸는 방식이 아니라 박스 스타일로 강조한다
+        assertThat(second).doesNotContain("\\c&H");
+
+        Matcher a = FS.matcher(first);
+        Matcher b = FS.matcher(second);
+        assertThat(a.find()).isTrue();
+        assertThat(b.find()).isTrue();
+        assertThat(a.group(1)).isEqualTo(b.group(1));
+        assertThat(Integer.parseInt(a.group(1))).isLessThanOrEqualTo(116);
+    }
+
+    @Test
+    @DisplayName("둘째 줄이 없으면 기존 한 줄 제목과 같다")
+    void twoLineTitleWithoutHookFallsBack() throws IOException {
+        List<CutInput> cuts = List.of(cut(0, "자막", 0, 3000));
+        String single = read(writer.write(jobId, "자동차정비기능사합격률｜필기시험 난이도", cuts));
+        String viaTitle = read(writer.writeWithTitle(jobId,
+                VideoTitle.singleLine("자동차정비기능사합격률｜필기시험 난이도"), cuts));
+
+        assertThat(viaTitle).isEqualTo(single);
     }
 
     @Test

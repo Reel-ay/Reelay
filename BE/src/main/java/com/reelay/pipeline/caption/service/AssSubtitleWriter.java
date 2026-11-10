@@ -3,6 +3,7 @@ package com.reelay.pipeline.caption.service;
 import com.reelay.common.font.FontDir;
 import com.reelay.common.storage.StorageService;
 import com.reelay.video.dto.CutInput;
+import com.reelay.video.dto.VideoTitle;
 import org.springframework.stereotype.Component;
 
 import java.awt.*;
@@ -22,7 +23,9 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private static final int WIDTH = 1080;
     private static final int HEIGHT = 1920;
 
-    private static final int SUB_Y = 1500;
+    // 컷 자막은 사진 띠(y 490~1430) 안 아래쪽에 겹쳐 띄운다
+    // 아래 기준 정렬(Alignment 2)이라 이 값이 자막 박스의 아래 끝. 두 줄이면 위로 자란다
+    private static final int SUB_Y = 1395;
 
     // 제목 1줄 기준
     private static final int TITLE_Y = 290;
@@ -33,6 +36,20 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private static final int TITLE_ONE_LINE_FLOOR = 100;
     private static final int TITLE_HARD_MIN = 56;
     private static final String TITLE_SEPARATORS = "｜|【】[]";
+
+    // 두 줄 제목 (첫 줄 키워드 흰 글씨 + 둘째 줄 강조 문구 형광펜 박스)
+    // 상단 앱 UI(상태바·계정명)를 피하면서 이미지 띠(y 490) 위에서 끝나도록 잡은 값. 실제 영상 보고 조정
+    private static final int TITLE_TWO_LINE_Y = 150;
+    private static final int TITLE_TWO_LINE_MAX_SIZE = 116;
+    private static final double TITLE_LINE_HEIGHT = 1.2;
+    // 형광펜 박스 안쪽 여백(px). BorderStyle 3 에서 Outline 값이 박스 여백이 된다
+    private static final int HOOK_BOX_PADDING = 14;
+    // 형광펜 색 (ASS 는 &HAABBGGRR 순서). HIGHLIGHT_COLOR 와 같은 노랑 #F5C518
+    private static final String HOOK_BOX_COLOR = "&H0018C5F5";
+    private static final String HOOK_TEXT_COLOR = "&H00111111";
+    // 사진 위에서도 자막이 읽히도록 줄마다 반투명 검정 박스 (BorderStyle 4 = 줄 단위 박스, libass 0.17+)
+    // 알파 0x40 = 약 75% 불투명. 강조어 색이 바뀌어도 박스가 끊기지 않는다
+    private static final String SUB_BOX_COLOR = "&H40000000";
 
     private static final String HIGHLIGHT_COLOR = "&H0018C5F5&";
     private static final String DEFAULT_COLOR = "&H00FFFFFF&";
@@ -57,21 +74,7 @@ public class AssSubtitleWriter implements SubtitleWriter {
     // ASS 자막 파일 생성 및 저장
     @Override
     public Path write(UUID jobId, String title, List<CutInput> cuts) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(header());
-        sb.append(titleLine(title, totalMs(cuts)));
-        for(CutInput cut : cuts) {
-            sb.append(subtitleLine(cut));
-        }
-
-        Path out = storage.subtitlePath(jobId);
-        try {
-            Files.writeString(out, sb.toString(), StandardCharsets.UTF_8);
-        }
-        catch(IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return out;
+        return save(jobId, titleLine(title, totalMs(cuts)), cuts);
     }
 
     // 자막 해상도와 스타일 설정
@@ -87,11 +90,53 @@ public class AssSubtitleWriter implements SubtitleWriter {
                 [V4+ Styles]
                 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
                 Style: title,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,0,0,0,1
-                Style: sub,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,3,0,8,0,0,0,1
+                Style: sub,%s,%d,&H00FFFFFF,&H000000FF,%s,%s,0,0,0,0,100,100,0,0,4,6,0,2,0,0,0,1
+                Style: titlehook,%s,%d,%s,&H000000FF,%s,%s,0,0,0,0,100,100,0,0,3,%d,0,8,0,0,0,1
 
                 [Events]
                 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-                """.formatted(WIDTH, HEIGHT, FONT_NAME, TITLE_SIZE, FONT_NAME, SUB_SIZE);
+                """.formatted(WIDTH, HEIGHT, FONT_NAME, TITLE_SIZE, FONT_NAME, SUB_SIZE, SUB_BOX_COLOR, SUB_BOX_COLOR,
+                FONT_NAME, TITLE_SIZE, HOOK_TEXT_COLOR, HOOK_BOX_COLOR, HOOK_BOX_COLOR, HOOK_BOX_PADDING);
+    }
+
+    // 두 줄 제목 버전. hook 이 없으면 기존 한 줄 제목과 같다
+    @Override
+    public Path writeWithTitle(UUID jobId, VideoTitle title, List<CutInput> cuts) {
+        if(title == null || !title.hasHook() || title.keyword() == null || title.keyword().isBlank()) {
+            return write(jobId, title == null ? null : title.keyword(), cuts);
+        }
+        return save(jobId, twoLineTitle(title, totalMs(cuts)), cuts);
+    }
+
+    // 헤더 + 제목 + 컷 자막을 합쳐 subs.ass 로 저장
+    private Path save(UUID jobId, String titleBlock, List<CutInput> cuts) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(header());
+        sb.append(titleBlock);
+        for(CutInput cut : cuts) {
+            sb.append(subtitleLine(cut));
+        }
+
+        Path out = storage.subtitlePath(jobId);
+        try {
+            Files.writeString(out, sb.toString(), StandardCharsets.UTF_8);
+        }
+        catch(IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return out;
+    }
+
+    // 첫 줄은 흰 글씨(title 스타일), 둘째 줄은 노란 형광펜 박스 위 검은 글씨(titlehook 스타일)
+    // 두 줄을 같은 크기로, 줄마다 따로 Dialogue 를 만든다
+    private String twoLineTitle(VideoTitle title, int totalMs) {
+        String first = sanitize(title.keyword());
+        String second = sanitize(title.hook());
+        // 형광펜 박스 여백만큼 폭이 늘어나므로 그만큼 빼고 맞춘다
+        int size = Math.min(TITLE_TWO_LINE_MAX_SIZE, largestSize(List.of(first, second + "  ")));
+        int secondY = TITLE_TWO_LINE_Y + (int) Math.round(size * TITLE_LINE_HEIGHT) + HOOK_BOX_PADDING;
+        return dialogue("title", 0, totalMs, TITLE_TWO_LINE_Y, new Fitted(List.of(first), size), null)
+                + dialogue("titlehook", 0, totalMs, secondY, new Fitted(List.of(second), size), null);
     }
 
     // 영상 전체 제목 생성
