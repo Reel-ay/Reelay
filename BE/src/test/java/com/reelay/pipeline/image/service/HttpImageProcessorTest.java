@@ -172,6 +172,32 @@ class HttpImageProcessorTest {
         assertThat(images).extracting(CutImage::cutOrder).containsExactly(0, 1, 2, 3);
     }
 
+    @Test
+    @DisplayName("본문 직접 입력 사진(file:)은 다운로드 없이 이 job 의 uploads 폴더에서 읽는다")
+    void readsUploadedLocalFile() throws Exception {
+        Path upload = storage.uploadPath(jobId, 0);
+        Files.createDirectories(upload.getParent());
+        Files.write(upload, jpeg(800, 600));
+
+        List<CutImage> images = processor.process(jobId, List.of(upload.toUri().toString()), drafts(0));
+
+        assertThat(images.get(0).imagePath()).isEqualTo(storage.imagePath(jobId, 0));
+        verifyNoInteractions(downloader);
+    }
+
+    @Test
+    @DisplayName("uploads 폴더 밖의 file: 주소는 읽지 않는다 (텍스트 카드)")
+    void rejectsLocalFileOutsideUploads() throws Exception {
+        Path other = storage.uploadPath(UUID.randomUUID(), 0);
+        Files.createDirectories(other.getParent());
+        Files.write(other, jpeg(800, 600));
+
+        List<CutImage> images = processor.process(jobId, List.of(other.toUri().toString()), drafts(0));
+
+        assertThat(images.get(0).imagePath()).isNull();
+        verifyNoInteractions(downloader);
+    }
+
     private List<CutDraft> drafts(Integer... sourceImageIndexes) {
         List<CutDraft> cuts = new java.util.ArrayList<>();
         for(int i = 0; i < sourceImageIndexes.length; i++) {

@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 // 모든 4xx·5xx 를 { code, message } 한 가지 모양으로 내보낸다
@@ -50,6 +51,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         return toResponse(ErrorCode.JOB_NOT_FOUND);
+    }
+
+    // 업로드 용량 초과 (spring.servlet.multipart.max-file-size / max-request-size)
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleUploadTooLarge(MaxUploadSizeExceededException e) {
+        return toResponse(ErrorCode.IMAGE_TOO_LARGE);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
