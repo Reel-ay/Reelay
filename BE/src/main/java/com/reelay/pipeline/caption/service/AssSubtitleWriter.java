@@ -43,6 +43,45 @@ public class AssSubtitleWriter implements SubtitleWriter {
     private static final String HIGHLIGHT_COLOR = "&H0018C5F5&";
     private static final String DEFAULT_COLOR = "&H00FFFFFF&";
 
+    private static final int CARD_SIZE = 190;
+    private static final int CARD_MIN_SIZE = 76;
+    private static final int CARD_MAX_LINES = 3;
+    private static final int CARD_BLOCK_HEIGHT = 620;
+    private static final int CARD_LEFT = 100;
+    private static final int CARD_TOP = 700;
+    private static final int CARD_QUOTE_SIZE = 190;
+    private static final int CARD_QUOTE_Y = 470;
+    private static final int CARD_HEAD_Y = 170;
+    private static final int CARD_HEAD_RULE_Y = 232;
+    private static final int CARD_FOOT_RULE_Y = 1700;
+    private static final int CARD_FOOT_RULE_NARROW = 600;
+    private static final int CARD_RULE_HEIGHT = 3;
+    private static final int CARD_HEAD_SIZE = 48;
+    private static final int CARD_BADGE_GAP = 56;
+    private static final int CARD_BADGE_SIZE = 64;
+    private static final int CARD_BADGE_PAD = 36;
+    private static final int CARD_RISE = 46;
+    private static final int CARD_RISE_MS = 260;
+    private static final int CARD_FADE_MS = 180;
+    private static final int CARD_STAGGER_MS = 70;
+    private static final double CARD_LINE_HEIGHT = 1.05;
+    private static final int CARD_BAR_Y = 600;
+    private static final int CARD_BAR_WIDTH = 120;
+    private static final int CARD_BAR_HEIGHT = 10;
+    private static final String CARD_ACCENT = "&H001A6BF2&";
+    private static final String CARD_INK_LIGHT = "&H001A1A1A&";
+    private static final String CARD_INK_DARK = "&H00FFFFFF&";
+    private static final String CARD_BG_TITLE = "&H001A6BF2&";
+
+    // 배경 장식 원. 화면 밖으로 반쯤 나가게 두면 가장자리가 잘려 크게 보인다
+    // {중심x, 중심y, 반지름} 과 색. 앞의 것이 뒤에 깔린다
+    private static final int[][] CIRCLES_TITLE = {{1150, 1810, 380}, {120, 150, 270}};
+    private static final String[] COLORS_TITLE = {"&H00458AFF&", "&H000A5DE8&"};
+    private static final int[][] CIRCLES_LIGHT = {{1150, 1810, 380}, {990, 140, 250}};
+    private static final String[] COLORS_LIGHT = {"&H001A6BF2&", "&H00DCE7ED&"};
+    private static final int[][] CIRCLES_DARK = {{980, 130, 400}};
+    private static final String[] COLORS_DARK = {"&H00262626&"};
+
     private static final int SAFE_LEFT = 100;
     private static final int SAFE_RIGHT = 980;
     private static final int SAFE_TOP = 150;
@@ -75,7 +114,8 @@ public class AssSubtitleWriter implements SubtitleWriter {
     // ASS 자막 파일 생성 및 저장
     @Override
     public Path write(UUID jobId, String title, List<CutInput> cuts) {
-        return save(jobId, titleLine(title, totalMs(cuts)), cuts);
+        return save(jobId, titleLine(title, totalMs(cuts)),
+                title == null || title.isBlank() ? null : headline(title), null, cuts);
     }
 
     // 자막 해상도와 스타일 설정
@@ -94,6 +134,10 @@ public class AssSubtitleWriter implements SubtitleWriter {
                 Style: sub,%s,%d,&H00FFFFFF,&H000000FF,%s,%s,0,0,0,0,100,100,0,0,4,%d,0,2,0,0,0,1
                 Style: titlehook,%s,%d,%s,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,8,0,0,0,1
                 Style: hookbox,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+                Style: card,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,-2,0,1,0,0,7,0,0,0,1
+                Style: cardhead,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,10,0,1,0,0,7,0,0,0,1
+                Style: cardbadge,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+                Style: cardshape,%s,%d,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 
                 [Events]
                 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -101,7 +145,11 @@ public class AssSubtitleWriter implements SubtitleWriter {
                 FontDir.TITLE_FAMILY, TITLE_SIZE,
                 FontDir.SUB_FAMILY, SUB_SIZE, SUB_BOX_COLOR, SUB_BOX_COLOR, SUB_BOX_PADDING,
                 FontDir.TITLE_FAMILY, TITLE_SIZE, HOOK_TEXT_COLOR,
-                FontDir.TITLE_FAMILY, TITLE_SIZE);
+                FontDir.TITLE_FAMILY, TITLE_SIZE,
+                FontDir.TITLE_FAMILY, CARD_SIZE,
+                FontDir.SUB_FAMILY, CARD_HEAD_SIZE,
+                FontDir.SUB_FAMILY, CARD_BADGE_SIZE,
+                FontDir.TITLE_FAMILY, CARD_SIZE);
     }
 
     @Override
@@ -109,15 +157,29 @@ public class AssSubtitleWriter implements SubtitleWriter {
         if(title == null || !title.hasHook() || title.keyword() == null || title.keyword().isBlank()) {
             return write(jobId, title == null ? null : title.keyword(), cuts);
         }
-        return save(jobId, twoLineTitle(title, totalMs(cuts)), cuts);
+        return save(jobId, twoLineTitle(title, totalMs(cuts)), title.keyword(), title.hook(), cuts);
     }
 
-    private Path save(UUID jobId, String titleBlock, List<CutInput> cuts) {
+    private Path save(UUID jobId, String titleBlock, String keyword, String hook, List<CutInput> cuts) {
         StringBuilder sb = new StringBuilder();
+        boolean cardMode = cuts.stream().allMatch(cut -> cut.imagePath() == null);
+
         sb.append(header());
-        sb.append(titleBlock);
-        for(CutInput cut : cuts) {
-            sb.append(subtitleLine(cut));
+        if(!cardMode) {
+            sb.append(titleBlock);
+        }
+
+        // 카드끼리 글자 크기가 다르면 넘어갈 때마다 들쑥날쑥해 보인다. 제일 긴 캡션에 맞춰 하나로 쓴다
+        int cardSize = cardMode ? cuts.stream()
+                .map(cut -> cardFit(cut.caption()))
+                .mapToInt(Fitted::size)
+                .min()
+                .orElse(CARD_MIN_SIZE) : 0;
+
+        for(int i = 0; i < cuts.size(); i++) {
+            sb.append(cardMode
+                    ? cardLine(cuts.get(i), i, cuts.size(), cardSize, keyword, hook)
+                    : subtitleLine(cuts.get(i)));
         }
 
         Path out = storage.subtitlePath(jobId);
@@ -184,6 +246,223 @@ public class AssSubtitleWriter implements SubtitleWriter {
         Fitted fitted = fit(cut.caption(), SUB_SIZE, SUB_MIN_SIZE);
         return dialogue("sub", cut.startMs(), cut.startMs() + cut.audioMs(),
                 BAND_BOTTOM - SUB_BOTTOM_GAP, fitted, cut.highlight());
+    }
+
+    // 사진이 한 장도 없으면 전면 타이포그래피 카드로 그린다
+    // 첫 컷은 오렌지, 마지막은 다크, 사이 본문은 밝고 어두운 배경을 번갈아 쓴다 (FfmpegRenderer.CardStyle과 같은 규칙)
+    private String cardLine(CutInput cut, int index, int total, int size, String keyword, String hook) {
+        if(cut.caption() == null || cut.caption().isBlank()) {
+            return "";
+        }
+
+        boolean lightBackground = index != 0 && index != total - 1 && index % 2 == 1;
+        String ink = lightBackground ? CARD_INK_LIGHT : CARD_INK_DARK;
+        String accent = index == 0 ? CARD_INK_DARK : CARD_ACCENT;
+
+        int start = cut.startMs();
+        int end = start + cut.audioMs();
+        Fitted fitted = new Fitted(cardFit(cut.caption()).lines(), size);
+        int lineHeight = (int) Math.round(size * CARD_LINE_HEIGHT);
+
+        boolean quote = total >= 4 && index == total - 2;
+        int top = CARD_TOP;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(circles(index, total, start, end));
+        sb.append(cardFrame(index, total, start, end, keyword, ink));
+        boolean badged = index == 0 && hook != null && !hook.isBlank();
+        if(badged) {
+            sb.append(badge(hook, start, end, accent, CARD_BG_TITLE));
+        }
+        if(badged) {
+            // 배지가 있으면 악센트 바는 중복이라 그리지 않는다
+        }
+        else if(quote) {
+            sb.append("Dialogue: 0,%s,%s,card,,0,0,0,,{\\pos(%d,%d)\\fad(%d,0)\\fs%d\\c%s}“%n"
+                    .formatted(time(start), time(end), CARD_LEFT, CARD_QUOTE_Y,
+                            CARD_FADE_MS, CARD_QUOTE_SIZE, accent));
+        }
+        else {
+            sb.append("Dialogue: 0,%s,%s,cardshape,,0,0,0,,{\\move(%d,%d,%d,%d,0,%d)\\fad(%d,0)\\p1\\c%s\\bord0\\shad0}m 0 0 l %d 0 %d %d 0 %d{\\p0}%n"
+                    .formatted(time(start), time(end), CARD_LEFT - 60, CARD_BAR_Y, CARD_LEFT, CARD_BAR_Y,
+                            CARD_RISE_MS, CARD_FADE_MS, accent,
+                            CARD_BAR_WIDTH, CARD_BAR_WIDTH, CARD_BAR_HEIGHT, CARD_BAR_HEIGHT));
+        }
+
+        List<String> lines = fitted.lines();
+        for(int i = 0; i < lines.size(); i++) {
+            int y = top + i * lineHeight;
+            int from = Math.min(start + i * CARD_STAGGER_MS, end);
+            sb.append("Dialogue: 0,%s,%s,card,,0,0,0,,{\\move(%d,%d,%d,%d,0,%d)\\fad(%d,0)\\fs%d\\c%s}%s%n"
+                    .formatted(time(from), time(end), CARD_LEFT, y + CARD_RISE, CARD_LEFT, y,
+                            CARD_RISE_MS, CARD_FADE_MS, fitted.size(), ink,
+                            paintCard(lines.get(i), cut.highlight(), accent, ink)));
+        }
+        return sb.toString();
+    }
+
+    // 시안의 헤더와 하단 선. 컷 번호는 카드 모드에서만 쓰므로 전 컷이 카드일 때만 맞는 숫자다
+    private String cardFrame(int index, int total, int startMs, int endMs,
+                             String keyword, String ink) {
+        StringBuilder sb = new StringBuilder();
+
+        if(keyword != null && !keyword.isBlank()) {
+            sb.append("Dialogue: 0,%s,%s,cardhead,,0,0,0,,{\\pos(%d,%d)\\fad(%d,0)\\c%s}%s%n"
+                    .formatted(time(startMs), time(endMs), CARD_LEFT, CARD_HEAD_Y,
+                            CARD_FADE_MS, ink, sanitize(keyword)));
+        }
+        sb.append(rule(startMs, endMs, CARD_LEFT, CARD_HEAD_RULE_Y, SAFE_RIGHT - CARD_LEFT, ink));
+        // 다크 카드는 오른쪽 아래에 원이 없어서 선을 세이프존 끝까지 긋는다
+        int footWidth = darkStyle(index, total) ? SAFE_RIGHT - CARD_LEFT : CARD_FOOT_RULE_NARROW;
+        sb.append(rule(startMs, endMs, CARD_LEFT, CARD_FOOT_RULE_Y, footWidth, ink));
+        return sb.toString();
+    }
+
+    // 첫 카드에만 제목 둘째 줄을 알약으로 올린다. 폭은 글자 잉크 폭에 패딩을 더해 잡는다
+    private String badge(String hook, int startMs, int endMs, String accent, String ink) {
+        if(hook == null || hook.isBlank()) {
+            return "";
+        }
+        String text = sanitize(hook);
+        int w = (int) Math.round(width(text, CARD_BADGE_SIZE, subFont) * INK_WIDTH_RATIO) + CARD_BADGE_PAD * 2;
+        int h = (int) Math.round(CARD_BADGE_SIZE * INK_HEIGHT_RATIO) + CARD_BADGE_PAD;
+        int r = h / 2;
+        int y = CARD_TOP - CARD_BADGE_GAP - h;
+
+        return "Dialogue: 0,%s,%s,cardshape,,0,0,0,,{\\pos(%d,%d)\\fad(%d,0)\\p1\\c%s\\bord0\\shad0}%s{\\p0}%n"
+                .formatted(time(startMs), time(endMs), CARD_LEFT, y, CARD_FADE_MS, accent,
+                        roundedRect(w, h, r))
+                + "Dialogue: 0,%s,%s,cardbadge,,0,0,0,,{\\pos(%d,%d)\\fad(%d,0)\\c%s}%s%n"
+                .formatted(time(startMs), time(endMs), CARD_LEFT + CARD_BADGE_PAD,
+                        y + CARD_BADGE_PAD / 2 - (int) Math.round(CARD_BADGE_SIZE * INK_TOP_RATIO),
+                        CARD_FADE_MS, ink, text);
+    }
+
+    private String roundedRect(int w, int h, int r) {
+        return ("m %d 0 l %d 0 b %d 0 %d 0 %d %d l %d %d b %d %d %d %d %d %d "
+                + "l %d %d b 0 %d 0 %d 0 %d l 0 %d b 0 0 0 0 %d 0")
+                .formatted(r, w - r, w, w, w, r, w, h - r, w, h, w, h, w - r, h,
+                        r, h, h, h, h - r, r, r);
+    }
+
+    private String rule(int startMs, int endMs, int x, int y, int width, String color) {
+        return "Dialogue: 0,%s,%s,cardshape,,0,0,0,,{\\pos(%d,%d)\\fad(%d,0)\\p1\\c%s\\bord0\\shad0}m 0 0 l %d 0 %d %d 0 %d{\\p0}%n"
+                .formatted(time(startMs), time(endMs), x, y, CARD_FADE_MS, color,
+                        width, width, CARD_RULE_HEIGHT, CARD_RULE_HEIGHT);
+    }
+
+    // 첫 컷은 오렌지, 마지막 컷과 짝수 컷은 다크, 나머지는 라이트
+    private boolean darkStyle(int index, int total) {
+        return index != 0 && (index == total - 1 || index % 2 == 0);
+    }
+
+    private String circles(int index, int total, int startMs, int endMs) {
+        int[][] shapes;
+        String[] colors;
+        if(index == 0) {
+            shapes = CIRCLES_TITLE;
+            colors = COLORS_TITLE;
+        }
+        else if(darkStyle(index, total)) {
+            shapes = CIRCLES_DARK;
+            colors = COLORS_DARK;
+        }
+        else {
+            shapes = CIRCLES_LIGHT;
+            colors = COLORS_LIGHT;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < shapes.length; i++) {
+            sb.append("Dialogue: 0,%s,%s,cardshape,,0,0,0,,{\\pos(0,0)\\p1\\c%s\\bord0\\shad0}%s{\\p0}%n"
+                    .formatted(time(startMs), time(endMs), colors[i],
+                            circlePath(shapes[i][0], shapes[i][1], shapes[i][2])));
+        }
+        return sb.toString();
+    }
+
+    // ASS에 원 명령이 없어서 베지어 4개로 그린다. 0.5523은 원을 근사하는 제어점 비율
+    private String circlePath(int cx, int cy, int r) {
+        int k = (int) Math.round(r * 0.5523);
+        return ("m %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d "
+                + "b %d %d %d %d %d %d b %d %d %d %d %d %d")
+                .formatted(cx, cy - r,
+                        cx + k, cy - r, cx + r, cy - k, cx + r, cy,
+                        cx + r, cy + k, cx + k, cy + r, cx, cy + r,
+                        cx - k, cy + r, cx - r, cy + k, cx - r, cy,
+                        cx - r, cy - k, cx - k, cy - r, cx, cy - r);
+    }
+
+    private String paintCard(String line, String highlight, String accent, String ink) {
+        if(highlight == null || highlight.isBlank() || !line.contains(highlight)) {
+            return line;
+        }
+        return line.replace(highlight, "{\\c%s}%s{\\c%s}".formatted(accent, highlight, ink));
+    }
+
+    // 카드는 줄 수를 늘려서라도 글자를 키운다. 한 줄에 들어간다고 거기서 멈추면 화면이 비어 보인다
+    private Fitted cardFit(String raw) {
+        String text = sanitize(raw);
+        Fitted best = null;
+
+        for(int count = 1; count <= CARD_MAX_LINES; count++) {
+            List<String> lines = splitInto(text, count);
+            if(lines.size() != count) {
+                continue;
+            }
+            int size = largestCardSize(lines);
+            if(Math.round(size * CARD_LINE_HEIGHT) * count > CARD_BLOCK_HEIGHT) {
+                continue;
+            }
+            if(best == null || size > best.size()) {
+                best = new Fitted(lines, size);
+            }
+        }
+        return best == null ? new Fitted(List.of(text), CARD_MIN_SIZE) : best;
+    }
+
+    // 폭은 글자 크기에 비례하므로 기준 크기로 한 번 재고 나눈다
+    private int largestCardSize(List<String> lines) {
+        double worst = 0;
+        for(String line : lines) {
+            worst = Math.max(worst, width(line, 100, titleFont) * INK_WIDTH_RATIO / 100.0);
+        }
+        if(worst <= 0) {
+            return CARD_MIN_SIZE;
+        }
+        int size = (int) Math.floor(MAX_TEXT_WIDTH / worst);
+        return Math.max(CARD_MIN_SIZE, Math.min(CARD_SIZE, size));
+    }
+
+    // 어절 단위로 줄마다 폭이 비슷해지게 나눈다. 어절이 모자라면 나눌 수 있는 만큼만 돌려준다
+    private List<String> splitInto(String text, int count) {
+        String[] words = text.split(" ");
+        if(count == 1 || words.length < count) {
+            return count == 1 ? List.of(text) : List.of();
+        }
+
+        double total = width(text, 100, titleFont);
+        double target = total / count;
+
+        List<String> lines = new ArrayList<>(count);
+        StringBuilder line = new StringBuilder();
+        for(int i = 0; i < words.length; i++) {
+            int remaining = count - lines.size();
+            boolean mustBreak = words.length - i == remaining - 1 && !line.isEmpty();
+            boolean overTarget = !line.isEmpty()
+                    && width(line + " " + words[i], 100, titleFont) > target * (lines.size() + 1);
+
+            if(lines.size() < count - 1 && (mustBreak || overTarget)) {
+                lines.add(line.toString());
+                line.setLength(0);
+            }
+            if(!line.isEmpty()) {
+                line.append(' ');
+            }
+            line.append(words[i]);
+        }
+        lines.add(line.toString());
+        return lines;
     }
 
     // 제목 핵심어 추출
