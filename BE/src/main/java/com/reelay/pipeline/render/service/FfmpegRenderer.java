@@ -169,12 +169,13 @@ public class FfmpegRenderer implements VideoRenderer {
         String filter = "[1:v]scale=" + LOGO_WIDTH + ":-1[lg]"
                 + ";[0:v][lg]overlay=(W-w)/2:'" + BAND_Y + "+" + BAND_HEIGHT
                 + "+(" + (SAFE_BOTTOM - BAND_Y - BAND_HEIGHT) + "-h)/2'"
+                + ":shortest=1"
                 + ",ass=" + Ffmpeg.filterPath(subtitleFile)
                 + ":fontsdir=" + Ffmpeg.filterPath(fontDir.path()) + "[v]";
 
         ffmpeg.run(List.of(
                 "-i", video.toString(),
-                "-i", brandAssets.logo().toString(),
+                "-loop", "1", "-i", brandAssets.logo().toString(),
                 "-filter_complex", filter,
                 "-map", "[v]",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p",
