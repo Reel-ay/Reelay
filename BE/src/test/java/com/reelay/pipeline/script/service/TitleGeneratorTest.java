@@ -29,15 +29,23 @@ class TitleGeneratorTest {
     }
 
     @Test
-    @DisplayName("원문 제목 단어·첫 줄과 같은 말·8자 초과 후보는 건너뛰고 첫 유입 문구를 고른다")
+    @DisplayName("첫 줄과 같은 말·글자 수 초과 후보는 건너뛰고 첫 유입 문구를 고른다")
     void picksFirstValidHook() {
         LlmTitle raw = new LlmTitle("자동차정비기능사 합격률",
-                List.of("필기시험", "자동차정비기능사", "한 번에 붙는 공부 순서", "합격 지름길", "초보 필수"));
+                List.of("자동차정비기능사", "한 번에 붙는 체계적인 공부 순서", "합격 지름길", "초보 필수"));
 
         VideoTitle title = TitleGenerator.pick(raw, BLOG_TITLE);
 
         assertThat(title.keyword()).isEqualTo("자동차정비기능사");
         assertThat(title.hook()).isEqualTo("합격 지름길");
+    }
+
+    @Test
+    @DisplayName("원문 제목에 있는 단어도 둘째 줄로 쓸 수 있다")
+    void allowsWordsFromBlogTitle() {
+        LlmTitle raw = new LlmTitle("자동차정비기능사", List.of("합격 공부법"));
+
+        assertThat(TitleGenerator.pick(raw, BLOG_TITLE).hook()).isEqualTo("합격 공부법");
     }
 
     @Test
@@ -51,7 +59,7 @@ class TitleGeneratorTest {
     @DisplayName("후보가 전부 탈락하면 한 번 다시 불러 둘째 줄을 채운다")
     void retriesWhenAllHooksRejected() {
         when(llm.callTitle(anyString(), anyString()))
-                .thenReturn(new LlmTitle("자동차정비기능사", List.of("필기시험", "합격률")))
+                .thenReturn(new LlmTitle("자동차정비기능사", List.of("자동차정비기능사", "자동차정비기능사 합격 공부 순서 정리")))
                 .thenReturn(new LlmTitle("자동차정비기능사", List.of("독학 3단계")));
 
         VideoTitle title = generator.generate(post(), List.of());
