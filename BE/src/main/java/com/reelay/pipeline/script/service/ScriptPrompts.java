@@ -12,10 +12,39 @@ import java.util.List;
 // 주의: Spring AI 는 파라미터를 넘길 때만 { } 를 템플릿으로 해석한다. 여기선 완성된 문자열만 넘긴다
 public final class ScriptPrompts {
 
+    private static final String CAPTION_PHOTO = """
+            [caption]
+            - 해당 컷 narration 에서 핵심 어절을 그대로 따온 짧은 구. 공백 포함 4~14자.
+            - 새로 요약하거나 명사형 소제목으로 바꾸지 않는다. 음성과 자막이 따로 놀면 안 된다.
+            """;
+
+    private static final String CAPTION_CARD = """
+            [caption]
+            - 이 영상에는 사진이 없다. caption 이 화면 전체를 채우는 카드의 본문이 되므로
+              짧은 라벨이 아니라 그 자체로 읽히는 문장이어야 한다.
+            - 해당 컷 narration 에서 핵심이 되는 절을 어미까지 포함해 그대로 가져온다. 공백 포함 10~16자.
+            - 명사로 끝내지 않는다. "~요", "~죠", "~까요" 처럼 어미로 끝낸다.
+            - 새로 요약하지 않는다. narration 에 있는 표현을 쓴다.
+            """;
+
+    private static final String SOURCE_IMAGE = """
+
+            [sourceImageIndex]
+            - 입력의 이미지 목록 index 중에서만 고른다. 그 컷 내용과 원문 위치가 가까운 이미지를 고른다.
+            - 같은 이미지를 여러 컷에 다시 써도 된다. 맞는 이미지가 없으면 null.
+            - URL 이나 새 이미지를 만들지 않는다.
+            """;
+
+    private static final String NO_SOURCE_IMAGE = """
+
+            [sourceImageIndex]
+            - 이 영상에는 쓸 수 있는 이미지가 없다. 모든 컷에서 null 로 둔다.
+            """;
+
     private ScriptPrompts() {
     }
 
-    public static String system(int targetCuts) {
+    public static String system(int targetCuts, boolean noImages) {
         return """
                 너는 블로그 글을 30~60초 세로 숏폼 영상 나레이션으로 바꾸는 작가다.
                 영상은 컷 단위로 만든다. 컷 1개 = 나레이션 1문장 = 화면 자막 1줄 = 이미지 1장이다.
@@ -41,18 +70,15 @@ public final class ScriptPrompts {
                 - 어미를 "~요" 체로 통일한다. 느낌표는 쓰지 않는다. 이모지, 특수기호, 괄호는 쓰지 않는다.
                 - 숫자는 소리 내어 읽기 쉬운 형태로 쓴다.
 
-                [caption]
-                - 해당 컷 narration 에서 핵심 어절을 그대로 따온 짧은 구. 공백 포함 4~14자.
-                - 새로 요약하거나 명사형 소제목으로 바꾸지 않는다. 음성과 자막이 따로 놀면 안 된다.
-
+                %s
                 [highlight]
                 - caption 안에 글자 그대로 들어 있는 부분 문자열 1개 (가장 중요한 단어). 없으면 null.
-
-                [sourceImageIndex]
-                - 입력의 이미지 목록 index 중에서만 고른다. 그 컷 내용과 원문 위치가 가까운 이미지를 고른다.
-                - 같은 이미지를 여러 컷에 다시 써도 된다. 맞는 이미지가 없으면 null.
-                - URL 이나 새 이미지를 만들지 않는다.
-                """.formatted(targetCuts, ScriptRules.MIN_NARRATION_CHARS, ScriptRules.MAX_NARRATION_CHARS);
+                - caption 전체를 그대로 쓰지 않는다. caption 보다 반드시 짧아야 한다.
+                %s"""
+                .formatted(targetCuts,
+                        ScriptRules.MIN_NARRATION_CHARS, ScriptRules.MAX_NARRATION_CHARS,
+                        noImages ? CAPTION_CARD : CAPTION_PHOTO,
+                        noImages ? NO_SOURCE_IMAGE : SOURCE_IMAGE);
     }
 
     public static String user(CrawledPost post) {
