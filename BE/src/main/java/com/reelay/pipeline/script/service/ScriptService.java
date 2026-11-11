@@ -46,7 +46,7 @@ public class ScriptService {
     private List<CutDraft> generateCuts(CrawledPost post) {
         int imageCount = post.images().size();
         int targetCuts = ScriptRules.targetCuts(post.body().length());
-        String system = ScriptPrompts.system(targetCuts);
+        String system = ScriptPrompts.system(targetCuts, imageCount == 0);
 
         LlmScript first = llm.call(system, ScriptPrompts.user(post));
         ScriptResult result = validator.validate(first, imageCount);
