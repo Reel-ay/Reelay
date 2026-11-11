@@ -96,6 +96,38 @@ class FfmpegRendererTest {
         assertThat(blackLevelAt(out, 1.5)).isZero();
     }
 
+    @Test
+    @DisplayName("컷이 바뀌어도 마지막 컷까지 로고가 남는다")
+    void keepsLogoUntilLastCut() {
+        List<CutInput> cuts = List.of(
+                cut(0, "790x1120", "3", "첫 번째 자막", 0),
+                cut(1, "900x410", "2.4", "두 번째 자막", 3000),
+                cut(2, "966x966", "4", "세 번째 자막", 5400));
+
+        Path subs = new AssSubtitleWriter(storage, new FontDir())
+                .write(jobId, "테스트 제목", cuts);
+
+        Path out = renderer.render(jobId, cuts, subs);
+
+        assertThat(logoLevelAt(out, 1.0)).isPositive();
+        assertThat(logoLevelAt(out, 8.0)).isPositive();
+    }
+
+    private int logoLevelAt(Path video, double seconds) {
+        Path png = tempDir.resolve("logo" + (int) (seconds * 1000) + ".png");
+        ffmpeg.run(List.of("-ss", String.valueOf(seconds), "-i", video.toString(),
+                "-frames:v", "1", "-vf", "crop=360:70:360:1400,scale=1:1",
+                png.toString()), SETUP_TIMEOUT);
+
+        try {
+            BufferedImage frame = ImageIO.read(png.toFile());
+            return new Color(frame.getRGB(0, 0)).getRed();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     private CutInput cut(int cutOrder, String imageSize, String seconds) {
         return cut(cutOrder, imageSize, seconds, "자막", 0);
     }

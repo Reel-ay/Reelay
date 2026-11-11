@@ -18,15 +18,22 @@ public class BrandAssets {
     private static final String CLASSPATH_DIR = "/brand/";
     private static final String TMP_DIR_NAME = "reelay-brand";
     private static final String LOGO_FILE = "logo.png";
+    private static final String LOGO_WHITE_FILE = "logo_white.png";
 
     private final Path logo;
+    private final Path logoWhite;
 
     public BrandAssets() {
         this.logo = extract(LOGO_FILE);
+        this.logoWhite = extract(LOGO_WHITE_FILE);
     }
 
     public Path logo() {
         return logo;
+    }
+
+    public Path logoWhite() {
+        return logoWhite;
     }
 
     private Path extract(String name) {
