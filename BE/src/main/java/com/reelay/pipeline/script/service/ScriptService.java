@@ -33,8 +33,13 @@ public class ScriptService {
 
     // 대본(컷) + 영상 상단 두 줄 제목
     public Script generate(CrawledPost post) {
+        return generate(post, null);
+    }
+
+    // fixedTitle: 사용자가 직접 쓴 제목. 있으면 제목 LLM 호출을 건너뛴다
+    public Script generate(CrawledPost post, VideoTitle fixedTitle) {
         List<CutDraft> cuts = generateCuts(post);
-        VideoTitle title = titleGenerator.generate(post, cuts);
+        VideoTitle title = fixedTitle != null ? fixedTitle : titleGenerator.generate(post, cuts);
         return new Script(title, cuts);
     }
 

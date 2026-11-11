@@ -13,6 +13,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -64,7 +65,7 @@ public class HttpImageProcessor implements ImageProcessor {
 
     // 이미지 다운로드 및 저장
     private Optional<Saved> save(UUID jobId, int index, String url) {
-        Optional<byte[]> bytes = downloader.download(url);
+        Optional<byte[]> bytes = fetch(jobId, url);
         if(bytes.isEmpty()) {
             return Optional.empty();
         }
@@ -85,6 +86,27 @@ public class HttpImageProcessor implements ImageProcessor {
         }
 
         return Optional.of(new Saved(path, ImageRatio.of(decoded.getWidth(), decoded.getHeight())));
+    }
+
+    // 블로그 사진은 http 다운로드, 본문 직접 입력 사진은 미리 저장해 둔 로컬 파일(file:)
+    // 로컬 파일은 이 job 의 uploads 폴더 안에 있는 것만 읽는다 (다른 경로 접근 차단)
+    private Optional<byte[]> fetch(UUID jobId, String url) {
+        if(url == null || !url.startsWith("file:")) {
+            return downloader.download(url);
+        }
+        try {
+            Path file = Path.of(URI.create(url)).toAbsolutePath().normalize();
+            Path uploads = storage.uploadPath(jobId, 0).getParent().toAbsolutePath().normalize();
+            if(!file.startsWith(uploads) || !storage.isFile(file)) {
+                log.warn("[{}] 업로드 사진 경로가 아님 : {}", jobId, url);
+                return Optional.empty();
+            }
+            return Optional.of(Files.readAllBytes(file));
+        }
+        catch(IOException | RuntimeException e) {
+            log.warn("[{}] 업로드 사진 읽기 실패 : {}", jobId, url, e);
+            return Optional.empty();
+        }
     }
 
     // 이미지 데이터 검증

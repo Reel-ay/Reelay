@@ -5,6 +5,10 @@ import com.reelay.common.exception.ErrorCode;
 import com.reelay.common.storage.StorageService;
 import com.reelay.pipeline.VideoPipeline;
 import com.reelay.pipeline.crawl.service.NaverBlogCrawler;
+import com.reelay.pipeline.manual.dto.ManualInput;
+import com.reelay.pipeline.manual.service.ManualImageStore;
+import com.reelay.pipeline.manual.service.ManualInputValidator;
+import com.reelay.video.enums.TitleMode;
 import com.reelay.video.dto.VideoJobResponse;
 import com.reelay.video.entity.VideoJob;
 import com.reelay.video.entity.VideoScene;
@@ -13,6 +17,9 @@ import com.reelay.video.repository.VideoJobStepRepository;
 import com.reelay.video.repository.VideoSceneRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.awt.image.BufferedImage;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -27,19 +34,22 @@ public class VideoJobService {
     private final VideoJobRepository jobs;
     private final VideoJobStepRepository steps;
     private final VideoSceneRepository scenes;
+    private final ManualImageStore imageStore;
 
     public VideoJobService(JobProgressRecorder recorder,
                            VideoPipeline pipeline,
                            StorageService storage,
                            VideoJobRepository jobs,
                            VideoJobStepRepository steps,
-                           VideoSceneRepository scenes) {
+                           VideoSceneRepository scenes,
+                           ManualImageStore imageStore) {
         this.recorder = recorder;
         this.pipeline = pipeline;
         this.storage = storage;
         this.jobs = jobs;
         this.steps = steps;
         this.scenes = scenes;
+        this.imageStore = imageStore;
     }
 
     // 1. POST /api/videos
@@ -53,6 +63,32 @@ public class VideoJobService {
         VideoJob job = recorder.createJob(url, target.blogId(), target.logNo());
         pipeline.runAsync(job.getId(), url);
         return job.getId();
+    }
+
+    // 1-2. POST /api/videos/manual (블로그 글 없이 본문 직접 입력)
+    // 입력 검증과 사진 열어 보기를 job 생성 전에 끝낸다 -> 잘못된 입력은 job 없이 400
+    // 사진은 요청이 끝나면 임시 파일이 지워지므로 파이프라인에 넘기기 전에 job 폴더에 저장한다
+    public UUID createManual(String rawBody, String rawTitleMode, String rawTitle, String rawTitleHook,
+                             List<MultipartFile> files) {
+        String body = ManualInputValidator.body(rawBody);
+        TitleMode mode = ManualInputValidator.titleMode(rawTitleMode);
+        String title = ManualInputValidator.title(mode, rawTitle);
+        String hook = ManualInputValidator.titleHook(mode, rawTitleHook);
+        List<BufferedImage> images = imageStore.decode(files);
+
+        VideoJob job = recorder.createManualJob(title);
+        UUID jobId = job.getId();
+        try {
+            storage.prepare(jobId);
+            List<String> uris = imageStore.save(jobId, images);
+            pipeline.runManualAsync(jobId, new ManualInput(mode, title, hook, body, uris));
+        }
+        catch (RuntimeException e) {
+            // 사진 저장 실패 등. job 이 PENDING 으로 남지 않게 실패로 기록하고 500
+            recorder.failJob(jobId, ErrorCode.INTERNAL_ERROR);
+            throw e;
+        }
+        return jobId;
     }
 
     // 2. GET /api/videos/{jobId}

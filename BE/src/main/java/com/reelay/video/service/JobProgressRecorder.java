@@ -43,6 +43,16 @@ public class JobProgressRecorder {
         return job;
     }
 
+    // 본문 직접 입력 job. 단계 6행도 같이 만든다 (CRAWL 단계는 입력값 읽기로 쓴다)
+    @Transactional
+    public VideoJob createManualJob(String title) {
+        VideoJob job = jobs.save(VideoJob.createManual(title));
+        for (StepType type : StepType.values()) {
+            steps.save(VideoJobStep.pending(job.getId(), type));
+        }
+        return job;
+    }
+
     @Transactional
     public void startStep(UUID jobId, StepType type) {
         getJob(jobId).startStep(type);
