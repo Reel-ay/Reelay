@@ -67,16 +67,13 @@ public class TitleGenerator {
                 if (hook == null) {
                     continue;
                 }
+                hook = ScriptValidator.trimDanglingParticle(hook);
                 if (ScriptValidator.titleLength(hook) > ScriptRules.MAX_TITLE_LINE_CHARS) {
                     log.debug("[TITLE] 후보 탈락(길이) '{}'", hook);
                     continue;
                 }
                 if (ScriptValidator.isSameText(keyword, hook)) {
                     log.debug("[TITLE] 후보 탈락(첫 줄과 같음) '{}'", hook);
-                    continue;
-                }
-                if (ScriptValidator.isCopiedFrom(hook, blogTitle)) {
-                    log.debug("[TITLE] 후보 탈락(원문 제목 단어) '{}'", hook);
                     continue;
                 }
                 return new VideoTitle(keyword, hook);

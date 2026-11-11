@@ -38,6 +38,7 @@ public class ScriptValidator {
             int cutOrder = cuts.size();
             String narration = raw.narration().strip();
             String caption = isBlank(raw.caption()) ? narration : raw.caption().strip();
+            caption = trimDanglingParticle(caption);
             String highlight = normalizeHighlight(caption, raw.highlight());
             Integer imageIndex = normalizeImageIndex(raw.sourceImageIndex(), imageCount);
 
@@ -119,23 +120,17 @@ public class ScriptValidator {
 
     // 둘째 줄 후보가 블로그 원문(제목)에서 그대로 따온 말인지
     // 후보의 모든 어절(2자 이상)이 원문 제목에 들어 있으면 "블로그 문구"로 본다 -> 유입 문구가 아니다
-    static boolean isCopiedFrom(String hook, String source) {
-        if (source == null || source.isBlank()) {
-            return false;
+    private static String dropBoundNoun(String text) {
+        int space = text.lastIndexOf(' ');
+        if (space <= 0) {
+            return text;
         }
-        String src = compact(source);
-        boolean anyWord = false;
-        for (String word : hook.split(" ")) {
-            String w = compact(word);
-            if (w.length() < 2) {
-                continue;
-            }
-            anyWord = true;
-            if (!src.contains(w)) {
-                return false;
-            }
+        String last = text.substring(space + 1);
+        if (!BOUND_NOUNS.contains(last)) {
+            return text;
         }
-        return anyWord;
+        log.debug("의존명사로 끝나는 caption 에서 마지막 어절을 뺐습니다 - '{}'", text);
+        return text.substring(0, space).strip();
     }
 
     private static String compact(String s) {
@@ -148,6 +143,37 @@ public class ScriptValidator {
             return true;
         }
         return "·-&+#%()".indexOf(cp) >= 0;
+    }
+
+    // 조사로 끝나는 caption은 말이 끊겨 보인다 ("자세한 내용은"). 조사만 떼어 "자세한 내용"으로 만든다
+    // 이·가·의·에·과·도 는 뺐다. 실측 250건에서 "강의" "난이도" "결과" "문제풀이" 같은 명사가 전부 걸렸다
+    private static final List<String> TRAILING_PARTICLES =
+            List.of("에서", "으로", "에게", "부터", "까지", "은", "는", "을", "를");
+
+    private static final List<String> BOUND_NOUNS =
+            List.of("수", "것", "때", "점", "줄", "바", "데", "뿐", "만큼");
+
+    static String trimDanglingParticle(String caption) {
+        if (isBlank(caption)) {
+            return caption;
+        }
+        String trimmed = dropBoundNoun(caption.strip());
+        for (String particle : TRAILING_PARTICLES) {
+            if (!trimmed.endsWith(particle)) {
+                continue;
+            }
+            String cut = trimmed.substring(0, trimmed.length() - particle.length()).strip();
+            if (cut.isEmpty() || cut.endsWith(" ")) {
+                return trimmed;
+            }
+            int space = cut.lastIndexOf(' ');
+            if (space == cut.length() - 1) {
+                return trimmed;
+            }
+            log.debug("조사로 끝나는 caption 에서 조사를 뗐습니다 - '{}' -> '{}'", trimmed, cut);
+            return cut;
+        }
+        return trimmed;
     }
 
     // caption 안에 실제로 없으면 null. B 가 강조 태그 위치를 못 찾는 사고를 막는다
