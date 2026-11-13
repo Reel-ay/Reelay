@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,7 +46,7 @@ public class AssSubtitleWriter implements SubtitleWriter {
 
     private static final int CARD_SIZE = 190;
     private static final int CARD_MIN_SIZE = 76;
-    private static final int CARD_MAX_LINES = 3;
+    private static final int CARD_MAX_LINES = 4;
     private static final int CARD_BLOCK_HEIGHT = 620;
     // 표지는 인물 일러스트가 y 1040 아래를 덮어서 글자 자리가 더 좁다
     private static final int COVER_TOP = 470;
@@ -395,35 +396,49 @@ public class AssSubtitleWriter implements SubtitleWriter {
         return Math.max(CARD_MIN_SIZE, Math.min(CARD_SIZE, size));
     }
 
-    // 어절 단위로 줄마다 폭이 비슷해지게 나눈다. 어절이 모자라면 나눌 수 있는 만큼만 돌려준다
+    // 어절 단위로 나누되 가장 넓은 줄이 가장 좁아지게 나눈다. 카드 글자 크기는 그 줄 하나로 정해진다
     private List<String> splitInto(String text, int count) {
         String[] words = text.split(" ");
         if(count == 1 || words.length < count) {
             return count == 1 ? List.of(text) : List.of();
         }
 
-        double total = width(text, 100, titleFont);
-        double target = total / count;
+        int total = words.length;
+        double[][] widest = new double[total + 1][count + 1];
+        int[][] cutFrom = new int[total + 1][count + 1];
+        for(double[] row : widest) {
+            Arrays.fill(row, Double.MAX_VALUE);
+        }
+        widest[0][0] = 0;
+
+        for(int end = 1; end <= total; end++) {
+            for(int used = 1; used <= count; used++) {
+                for(int start = used - 1; start < end; start++) {
+                    if(widest[start][used - 1] == Double.MAX_VALUE) {
+                        continue;
+                    }
+                    double candidate = Math.max(widest[start][used - 1],
+                            width(join(words, start, end), 100, titleFont));
+                    if(candidate < widest[end][used]) {
+                        widest[end][used] = candidate;
+                        cutFrom[end][used] = start;
+                    }
+                }
+            }
+        }
 
         List<String> lines = new ArrayList<>(count);
-        StringBuilder line = new StringBuilder();
-        for(int i = 0; i < words.length; i++) {
-            int remaining = count - lines.size();
-            boolean mustBreak = words.length - i == remaining - 1 && !line.isEmpty();
-            boolean overTarget = !line.isEmpty()
-                    && width(line + " " + words[i], 100, titleFont) > target * (lines.size() + 1);
-
-            if(lines.size() < count - 1 && (mustBreak || overTarget)) {
-                lines.add(line.toString());
-                line.setLength(0);
-            }
-            if(!line.isEmpty()) {
-                line.append(' ');
-            }
-            line.append(words[i]);
+        int end = total;
+        for(int used = count; used > 0; used--) {
+            int start = cutFrom[end][used];
+            lines.add(0, join(words, start, end));
+            end = start;
         }
-        lines.add(line.toString());
         return lines;
+    }
+
+    private String join(String[] words, int from, int to) {
+        return String.join(" ", Arrays.copyOfRange(words, from, to));
     }
 
     // 제목 핵심어 추출
