@@ -6,12 +6,16 @@ import com.reelay.pipeline.caption.service.SubtitleWriter;
 import com.reelay.pipeline.crawl.dto.CrawledPost;
 import com.reelay.pipeline.crawl.service.BlogCrawler;
 import com.reelay.pipeline.image.service.ImageProcessor;
+import com.reelay.pipeline.manual.dto.ManualInput;
 import com.reelay.pipeline.render.service.VideoRenderer;
 import com.reelay.pipeline.script.dto.CutDraft;
+import com.reelay.pipeline.script.dto.Script;
 import com.reelay.pipeline.script.service.ScriptService;
 import com.reelay.pipeline.tts.dto.CutAudio;
 import com.reelay.pipeline.tts.service.TtsService;
+import com.reelay.video.dto.VideoTitle;
 import com.reelay.video.enums.StepType;
+import com.reelay.video.enums.TitleMode;
 import com.reelay.video.service.JobProgressRecorder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +31,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -46,6 +52,7 @@ class VideoPipelineTmpTest {
     private ScriptService scriptService;
     private TtsService ttsService;
     private VideoRenderer renderer;
+    private SubtitleWriter subtitleWriter;
     private VideoPipeline pipeline;
 
     @BeforeEach
@@ -56,7 +63,7 @@ class VideoPipelineTmpTest {
         crawler = mock(BlogCrawler.class);
         scriptService = mock(ScriptService.class);
         ttsService = mock(TtsService.class);
-        SubtitleWriter subtitleWriter = mock(SubtitleWriter.class);
+        subtitleWriter = mock(SubtitleWriter.class);
         renderer = mock(VideoRenderer.class);
 
         ObjectProvider<ImageProcessor> imageProvider = mock(ObjectProvider.class);
@@ -69,11 +76,11 @@ class VideoPipelineTmpTest {
         when(storage.tmpDir(jobId)).thenReturn(Path.of("storage", jobId.toString(), "tmp"));
         when(crawler.crawl(URL)).thenReturn(
                 new CrawledPost(URL, "someone", "123", "제목", "본문", 1, List.of()));
-        when(scriptService.generate(any())).thenReturn(List.of(
-                new CutDraft(0, "첫 문장이에요", "첫 문장", null, null)));
+        when(scriptService.generate(any(), any())).thenReturn(new Script(new VideoTitle("클로드 사용법", "TOP9"), List.of(
+                new CutDraft(0, "첫 문장이에요", "첫 문장", null, null))));
         when(ttsService.synthesize(eq(jobId), anyList())).thenReturn(List.of(
                 new CutAudio(0, Path.of("0.wav"), 2500)));
-        when(subtitleWriter.write(eq(jobId), anyString(), anyList())).thenReturn(Path.of("subs.ass"));
+        when(subtitleWriter.writeWithTitle(eq(jobId), any(), anyList())).thenReturn(Path.of("subs.ass"));
 
         pipeline = new VideoPipeline(recorder, storage, crawler, scriptService, ttsService,
                 imageProvider, subtitleProvider, rendererProvider, 1);
@@ -88,6 +95,50 @@ class VideoPipelineTmpTest {
 
         verify(recorder).complete(eq(jobId), anyString(), anyInt(), anyList());
         verify(storage).cleanTmp(jobId);
+    }
+
+    @Test
+    @DisplayName("LLM 이 만든 두 줄 제목을 저장하고 자막에 넘긴다 (원문 제목 아님)")
+    void usesGeneratedVideoTitle() {
+        when(renderer.render(eq(jobId), anyList(), any())).thenReturn(Path.of("out.mp4"));
+
+        pipeline.run(jobId, URL);
+
+        verify(recorder).updateTitle(jobId, "제목");
+        VideoTitle expected = new VideoTitle("클로드 사용법", "TOP9");
+        verify(recorder).updateVideoTitle(jobId, expected);
+        verify(subtitleWriter).writeWithTitle(eq(jobId), eq(expected), anyList());
+    }
+
+    @Test
+    @DisplayName("본문 직접 입력 + 제목 직접 작성: 크롤러를 부르지 않고 입력한 제목을 그대로 쓴다")
+    void manualWithFixedTitle() {
+        when(renderer.render(eq(jobId), anyList(), any())).thenReturn(Path.of("out.mp4"));
+        VideoTitle fixed = new VideoTitle("제주 한달살기", "비용 총정리");
+        when(scriptService.generate(any(), eq(fixed))).thenReturn(new Script(fixed, List.of(
+                new CutDraft(0, "첫 문장이에요", "첫 문장", null, null))));
+
+        pipeline.runManual(jobId, new ManualInput(TitleMode.MANUAL, "제주 한달살기", "비용 총정리",
+                "첫 문단\n둘째 문단", List.of()));
+
+        verify(crawler, never()).crawl(anyString());
+        verify(scriptService).generate(argThat(p -> p.sourceUrl() == null && p.paragraphCount() == 2), eq(fixed));
+        verify(recorder).updateTitle(jobId, "제주 한달살기");
+        verify(subtitleWriter).writeWithTitle(eq(jobId), eq(fixed), anyList());
+        verify(recorder).complete(eq(jobId), anyString(), anyInt(), anyList());
+    }
+
+    @Test
+    @DisplayName("본문 직접 입력 + 자동 생성: 생성된 첫 줄을 글 제목으로 저장한다")
+    void manualWithAutoTitle() {
+        when(renderer.render(eq(jobId), anyList(), any())).thenReturn(Path.of("out.mp4"));
+
+        pipeline.runManual(jobId, new ManualInput(TitleMode.AUTO, null, null, "본문", List.of()));
+
+        verify(crawler, never()).crawl(anyString());
+        verify(scriptService).generate(any(), isNull());
+        verify(recorder).updateTitle(jobId, "클로드 사용법");
+        verify(recorder).updateVideoTitle(jobId, new VideoTitle("클로드 사용법", "TOP9"));
     }
 
     @Test

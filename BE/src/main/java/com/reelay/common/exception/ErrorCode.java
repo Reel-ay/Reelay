@@ -8,6 +8,17 @@ public enum ErrorCode {
     INVALID_URL(HttpStatus.BAD_REQUEST, "네이버 블로그 글 URL이 아닙니다."),
     SOURCE_URL_TOO_LONG(HttpStatus.BAD_REQUEST, "글 주소가 너무 깁니다."),
 
+    // 본문 직접 입력 (POST /api/videos/manual)
+    BODY_REQUIRED(HttpStatus.BAD_REQUEST, "본문을 입력해 주세요."),
+    BODY_TOO_SHORT(HttpStatus.BAD_REQUEST, "본문을 100자 이상 입력해 주세요."),
+    BODY_TOO_LONG(HttpStatus.BAD_REQUEST, "본문은 20,000자까지 입력할 수 있습니다."),
+    INVALID_TITLE_MODE(HttpStatus.BAD_REQUEST, "제목 방식은 직접 작성(MANUAL) 또는 자동 생성(AUTO) 중 하나를 골라 주세요."),
+    TITLE_REQUIRED(HttpStatus.BAD_REQUEST, "제목을 입력해 주세요."),
+    TITLE_TOO_LONG(HttpStatus.BAD_REQUEST, "제목은 한 줄에 20자까지 입력할 수 있습니다."),
+    TOO_MANY_IMAGES(HttpStatus.BAD_REQUEST, "사진은 10장까지 올릴 수 있습니다."),
+    INVALID_IMAGE(HttpStatus.BAD_REQUEST, "JPG 또는 PNG 사진만 올릴 수 있습니다."),
+    IMAGE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "사진은 한 장에 10MB, 모두 합쳐 50MB까지 올릴 수 있습니다."),
+
     JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "요청을 찾을 수 없습니다."),
     JOB_NOT_READY(HttpStatus.CONFLICT, "영상이 아직 준비되지 않았습니다."),
     SCENE_NOT_FOUND(HttpStatus.NOT_FOUND, "컷을 찾을 수 없습니다."),

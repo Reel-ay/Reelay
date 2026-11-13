@@ -106,11 +106,29 @@ class ScriptValidatorTest {
     }
 
     @Test
-    @DisplayName("목표 컷 수는 본문 100자당 1컷, 4~18 사이")
+    @DisplayName("목표 컷 수는 본문 100자당 1컷, 4~16 사이")
     void targetCuts() {
-        assertThat(ScriptRules.targetCuts(1_855)).isEqualTo(18); // 실측 중간값
+        assertThat(ScriptRules.targetCuts(1_855)).isEqualTo(16); // 실측 중간값
         assertThat(ScriptRules.targetCuts(900)).isEqualTo(9);
         assertThat(ScriptRules.targetCuts(150)).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("조사로 끝나는 caption 은 조사만 떼어 낸다")
+    void trimDanglingParticle() {
+        assertThat(ScriptValidator.trimDanglingParticle("자세한 내용은")).isEqualTo("자세한 내용");
+        assertThat(ScriptValidator.trimDanglingParticle("합격기준은")).isEqualTo("합격기준");
+        assertThat(ScriptValidator.trimDanglingParticle("좋은 결과를")).isEqualTo("좋은 결과");
+        assertThat(ScriptValidator.trimDanglingParticle("블로그에서 확인")).isEqualTo("블로그에서 확인");
+    }
+
+    @Test
+    @DisplayName("조사와 같은 글자로 끝나는 명사는 건드리지 않는다")
+    void trimDanglingParticleKeepsRealWords() {
+        assertThat(ScriptValidator.trimDanglingParticle("온라인 강의")).isEqualTo("온라인 강의");
+        assertThat(ScriptValidator.trimDanglingParticle("필기시험 난이도")).isEqualTo("필기시험 난이도");
+        assertThat(ScriptValidator.trimDanglingParticle("좋은 결과")).isEqualTo("좋은 결과");
+        assertThat(ScriptValidator.trimDanglingParticle("문제풀이")).isEqualTo("문제풀이");
     }
 
     @Test
@@ -119,4 +137,34 @@ class ScriptValidatorTest {
         assertThat(ScriptRules.length("가 나 다")).isEqualTo(3);
         assertThat(ScriptRules.length(null)).isZero();
     }
+
+    @Test
+    @DisplayName("첫 줄은 물음표·느낌표·따옴표·이모지를 지우고, 둘째 줄은 ?! 를 남긴다")
+    void titleSymbols() {
+        assertThat(ScriptValidator.normalizeTitleLine("\"정보통신기사?!\" 🔥", false)).isEqualTo("정보통신기사");
+        assertThat(ScriptValidator.normalizeTitleLine("모르면 손해! 🔥", true)).isEqualTo("모르면 손해!");
+    }
+
+    @Test
+    @DisplayName("한 줄이 공백 포함 11자를 넘으면 뒤 어절부터 버린다")
+    void titleDropsTrailingWords() {
+        // "클로드 사용법 완전 총정리" = 14자 -> "클로드 사용법 완전" (10자)
+        assertThat(ScriptValidator.normalizeTitleLine("클로드 사용법 완전 총정리", false)).isEqualTo("클로드 사용법 완전");
+        assertThat(ScriptValidator.normalizeTitleLine("TOP9", true)).isEqualTo("TOP9");
+    }
+
+    @Test
+    @DisplayName("한 어절이 11자를 넘으면 자르지 않고 둔다 (자막 쪽 안전망)")
+    void titleKeepsSingleLongWord() {
+        assertThat(ScriptValidator.normalizeTitleLine("전자계산기조직응용기사", false)).isEqualTo("전자계산기조직응용기사");
+    }
+
+
+    @Test
+    @DisplayName("공백·문장부호를 빼고 한쪽이 다른 쪽을 품으면 같은 말로 본다")
+    void sameText() {
+        assertThat(ScriptValidator.isSameText("정보통신기사", "정보통신기사!")).isTrue();
+        assertThat(ScriptValidator.isSameText("정보통신기사", "독학 3단계")).isFalse();
+    }
+
 }

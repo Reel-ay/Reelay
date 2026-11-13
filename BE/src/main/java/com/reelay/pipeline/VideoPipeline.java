@@ -10,12 +10,15 @@ import com.reelay.pipeline.crawl.dto.CrawledPost;
 import com.reelay.pipeline.crawl.service.BlogCrawler;
 import com.reelay.pipeline.image.dto.CutImage;
 import com.reelay.pipeline.image.service.ImageProcessor;
+import com.reelay.pipeline.manual.dto.ManualInput;
 import com.reelay.pipeline.render.service.VideoRenderer;
 import com.reelay.pipeline.script.dto.CutDraft;
+import com.reelay.pipeline.script.dto.Script;
 import com.reelay.pipeline.script.service.ScriptService;
 import com.reelay.pipeline.tts.dto.CutAudio;
 import com.reelay.pipeline.tts.service.TtsService;
 import com.reelay.video.dto.CutInput;
+import com.reelay.video.dto.VideoTitle;
 import com.reelay.video.entity.VideoScene;
 import com.reelay.video.enums.StepType;
 import com.reelay.video.service.JobProgressRecorder;
@@ -37,7 +40,7 @@ import java.util.concurrent.Semaphore;
 import java.util.function.Supplier;
 
 // 6단계 오케스트레이터 (작업자 A)
-//   1 CRAWL   A  블로그 -> 제목·본문·이미지 URL
+//   1 CRAWL   A  블로그 -> 제목·본문·이미지 URL (본문 직접 입력이면 입력값을 같은 모양으로 변환)
 //   2 SCRIPT  A  LLM -> 컷 18개
 //   3 IMAGE   B  이미지 다운로드·컷 배정·Ken Burns
 //   4 TTS     A  문장별 wav + 길이 실측
@@ -90,18 +93,46 @@ public class VideoPipeline {
         run(jobId, sourceUrl);
     }
 
+    // POST /api/videos/manual. 사진은 요청 스레드에서 이미 저장해 두었다
+    @Async(AsyncConfig.PIPELINE_EXECUTOR)
+    public void runManualAsync(UUID jobId, ManualInput input) {
+        runManual(jobId, input);
+    }
+
     // 테스트에서 동기로 부를 수 있게 분리
     public void run(UUID jobId, String sourceUrl) {
+        log.info("[{}] 파이프라인 시작 {}", jobId, sourceUrl);
+        run(jobId, () -> crawler.crawl(sourceUrl), null);
+    }
+
+    // 본문 직접 입력: CRAWL 단계는 입력값을 CrawledPost 로 바꾸기만 한다
+    // 제목을 직접 썼으면(MANUAL) LLM 제목 생성을 건너뛰고 그 제목을 그대로 쓴다
+    public void runManual(UUID jobId, ManualInput input) {
+        log.info("[{}] 파이프라인 시작 (본문 직접 입력, 제목 {}, 사진 {}장)",
+                jobId, input.titleMode(), input.imageUris() == null ? 0 : input.imageUris().size());
+        run(jobId, input::toPost, input.fixedTitle());
+    }
+
+    // fixedTitle: 사용자가 직접 쓴 영상 제목. null 이면 LLM 이 만든다
+    private void run(UUID jobId, Supplier<CrawledPost> source, VideoTitle fixedTitle) {
         long startedAt = System.currentTimeMillis();
         boolean succeeded = false;
-        log.info("[{}] 파이프라인 시작 {}", jobId, sourceUrl);
         try {
             storage.prepare(jobId);
 
-            CrawledPost post = step(jobId, StepType.CRAWL, () -> crawler.crawl(sourceUrl));
-            recorder.updateTitle(jobId, post.title());
+            CrawledPost post = step(jobId, StepType.CRAWL, source);
+            if (post.title() != null) {
+                recorder.updateTitle(jobId, post.title());
+            }
 
-            List<CutDraft> drafts = step(jobId, StepType.SCRIPT, () -> scriptService.generate(post));
+            Script script = step(jobId, StepType.SCRIPT, () -> scriptService.generate(post, fixedTitle));
+            List<CutDraft> drafts = script.cuts();
+            recorder.updateVideoTitle(jobId, script.videoTitle());
+            // 원문 제목이 없는 글(본문 직접 입력 + 자동 생성)은 만든 제목 첫 줄을 화면 표시·파일명용 제목으로 쓴다
+            if (post.title() == null && script.videoTitle() != null && script.videoTitle().keyword() != null) {
+                recorder.updateTitle(jobId, script.videoTitle().keyword());
+            }
+            VideoTitle headline = headlineOf(script, post);
 
             List<CutImage> images = step(jobId, StepType.IMAGE, () -> processImages(jobId, post, drafts));
 
@@ -110,7 +141,7 @@ public class VideoPipeline {
             List<CutInput> cuts = assemble(drafts, images, audios);
 
             Path subtitle = step(jobId, StepType.CAPTION, () -> required(subtitleWriter, "SubtitleWriter")
-                    .write(jobId, post.title(), cuts));
+                    .writeWithTitle(jobId, headline, cuts));
 
             Path output = step(jobId, StepType.RENDER, () -> render(jobId, cuts, subtitle));
 
@@ -238,6 +269,15 @@ public class VideoPipeline {
             startMs += audio.audioMs();
         }
         return cuts;
+    }
+
+    // 영상 상단 제목: LLM 이 만든 두 줄 제목, 없으면 블로그 원문 제목 한 줄
+    static VideoTitle headlineOf(Script script, CrawledPost post) {
+        VideoTitle videoTitle = script.videoTitle();
+        if (videoTitle != null && videoTitle.keyword() != null && !videoTitle.keyword().isBlank()) {
+            return videoTitle;
+        }
+        return VideoTitle.singleLine(post.title());
     }
 
     private static List<CutImage> textCards(List<CutDraft> drafts) {

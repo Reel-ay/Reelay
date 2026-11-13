@@ -2,6 +2,7 @@ package com.reelay.video.service;
 
 import com.reelay.common.exception.BusinessException;
 import com.reelay.common.exception.ErrorCode;
+import com.reelay.video.dto.VideoTitle;
 import com.reelay.video.entity.VideoJob;
 import com.reelay.video.entity.VideoJobStep;
 import com.reelay.video.entity.VideoScene;
@@ -42,6 +43,16 @@ public class JobProgressRecorder {
         return job;
     }
 
+    // 본문 직접 입력 job. 단계 6행도 같이 만든다 (CRAWL 단계는 입력값 읽기로 쓴다)
+    @Transactional
+    public VideoJob createManualJob(String title) {
+        VideoJob job = jobs.save(VideoJob.createManual(title));
+        for (StepType type : StepType.values()) {
+            steps.save(VideoJobStep.pending(job.getId(), type));
+        }
+        return job;
+    }
+
     @Transactional
     public void startStep(UUID jobId, StepType type) {
         getJob(jobId).startStep(type);
@@ -56,6 +67,14 @@ public class JobProgressRecorder {
     @Transactional
     public void updateTitle(UUID jobId, String title) {
         getJob(jobId).updateTitle(title);
+    }
+
+    @Transactional
+    public void updateVideoTitle(UUID jobId, VideoTitle videoTitle) {
+        if (videoTitle == null) {
+            return;
+        }
+        getJob(jobId).updateVideoTitle(videoTitle.keyword(), videoTitle.hook());
     }
 
     // 단계 실패 = job 전체 실패 (중간 산출물에서 재개하지 않는다)

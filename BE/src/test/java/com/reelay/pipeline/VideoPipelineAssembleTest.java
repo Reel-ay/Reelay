@@ -4,9 +4,12 @@ import com.reelay.common.exception.BusinessException;
 import com.reelay.common.exception.ErrorCode;
 import com.reelay.pipeline.image.dto.CutImage;
 import com.reelay.pipeline.render.enums.KenBurnsVariant;
+import com.reelay.pipeline.crawl.dto.CrawledPost;
 import com.reelay.pipeline.script.dto.CutDraft;
+import com.reelay.pipeline.script.dto.Script;
 import com.reelay.pipeline.tts.dto.CutAudio;
 import com.reelay.video.dto.CutInput;
+import com.reelay.video.dto.VideoTitle;
 import com.reelay.video.enums.StepType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,5 +57,19 @@ class VideoPipelineAssembleTest {
                 .isEqualTo(ErrorCode.TTS_FAILED);
         assertThat(VideoPipeline.errorCodeOf(StepType.CAPTION, new RuntimeException()))
                 .isEqualTo(ErrorCode.RENDER_FAILED);
+    }
+
+    @Test
+    @DisplayName("영상 제목이 없으면 블로그 원문 제목으로 폴백한다")
+    void headlineFallsBackToPostTitle() {
+        CrawledPost post = new CrawledPost("https://blog.naver.com/a/1", "a", "1",
+                "자동차정비기능사 합격률 | 필기시험 난이도", "본문", 1, List.of());
+
+        VideoTitle generated = new VideoTitle("자동차정비기능사", "합격 지름길");
+        assertThat(VideoPipeline.headlineOf(new Script(generated, List.of()), post)).isEqualTo(generated);
+
+        VideoTitle fallback = VideoTitle.singleLine("자동차정비기능사 합격률 | 필기시험 난이도");
+        assertThat(VideoPipeline.headlineOf(new Script(null, List.of()), post)).isEqualTo(fallback);
+        assertThat(VideoPipeline.headlineOf(new Script(new VideoTitle(" ", "TOP9"), List.of()), post)).isEqualTo(fallback);
     }
 }

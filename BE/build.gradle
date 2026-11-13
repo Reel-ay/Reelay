@@ -58,11 +58,16 @@ dependencyManagement {
 	}
 }
 
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+}
+
 tasks.named('test') {
 	useJUnitPlatform {
 		excludeTags 'network'
 	}
 	environment 'SPRING_PROFILES_ACTIVE', 'local'
+	jvmArgs '-Dfile.encoding=UTF-8'
 	testLogging {
 		events 'passed', 'skipped', 'failed'
 		displayGranularity = 2
@@ -77,6 +82,7 @@ tasks.register('networkTest', Test) {
 	useJUnitPlatform {
 		includeTags 'network'
 	}
+	jvmArgs '-Dfile.encoding=UTF-8'
 	testLogging {
 		events 'passed', 'skipped', 'failed'
 		displayGranularity = 2

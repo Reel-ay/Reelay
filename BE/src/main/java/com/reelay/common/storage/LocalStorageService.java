@@ -23,6 +23,7 @@ public class LocalStorageService implements StorageService {
     private static final Logger log = LoggerFactory.getLogger(LocalStorageService.class);
 
     private static final String IMAGES = "images";
+    private static final String UPLOADS = "uploads";
     private static final String AUDIO = "audio";
     private static final String TMP = "tmp";
     private static final String SUBTITLE_FILE = "subs.ass";
@@ -38,8 +39,13 @@ public class LocalStorageService implements StorageService {
     }
 
     @Override
-    public Path imagePath(UUID jobId, int cutOrder) {
-        return jobDir(jobId).resolve(IMAGES).resolve(cutOrder + IMAGE_EXT);
+    public Path imagePath(UUID jobId, int sourceImageIndex) {
+        return jobDir(jobId).resolve(IMAGES).resolve(sourceImageIndex + IMAGE_EXT);
+    }
+
+    @Override
+    public Path uploadPath(UUID jobId, int uploadIndex) {
+        return jobDir(jobId).resolve(UPLOADS).resolve(uploadIndex + IMAGE_EXT);
     }
 
     @Override
