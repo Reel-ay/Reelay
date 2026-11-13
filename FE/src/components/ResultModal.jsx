@@ -1,3 +1,5 @@
+import './ResultModal.css'
+
 function ResultModal({ videoUrl, videoTitle, onClose, onRetry }) {
   return (
     <div className="modal-overlay">
@@ -11,7 +13,7 @@ function ResultModal({ videoUrl, videoTitle, onClose, onRetry }) {
         </div>
 
         <div className="result-video">
-          <video controls playsInline>
+          <video key={videoUrl} controls playsInline preload="metadata">
             <source src={videoUrl} type="video/mp4" />
             브라우저가 동영상 재생을 지원하지 않습니다.
           </video>
@@ -26,6 +28,8 @@ function ResultModal({ videoUrl, videoTitle, onClose, onRetry }) {
             href={videoUrl}
             download
             className="download-button"
+            target="_blank"
+            rel="noreferrer"
           >
             영상 다운로드
           </a>

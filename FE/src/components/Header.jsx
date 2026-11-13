@@ -1,3 +1,5 @@
+import './Header.css'
+
 function Header() {
   return (
     <header className="site-head">
@@ -18,7 +20,7 @@ function Header() {
             </svg>
           </span>
 
-          <span className="brand-name">Blog2Shorts</span>
+          <span className="brand-name">Reelay</span>
         </a>
 
         <span className="head-note">
