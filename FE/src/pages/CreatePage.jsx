@@ -22,7 +22,7 @@ function CreatePage() {
   const [status, setStatus] = useState('empty')
 
   // 영상 제작 진행 단계
-  const [currentStep, setCurrentStep] = useState(0)
+  const [, setCurrentStep] = useState(0)
 
   // 생성된 영상 정보
   const [videoUrl, setVideoUrl] = useState('')
