@@ -273,11 +273,49 @@ class AssSubtitleWriterTest {
         assertThat(titleLine(ass)).doesNotContain("\\c&H");
     }
 
+    @Test
+    @DisplayName("사진이 한 장도 없으면 전면 카드로 그리고 상단 제목은 빼놓는다")
+    void drawsFullCardsWhenNoPhotos() throws IOException {
+        List<CutInput> cuts = List.of(
+                cardCut(0, "왜 같은 실수를 반복할까요", "같은 실수", 0, 3000),
+                cardCut(1, "기출문제 반복이 핵심이에요", "기출문제", 3000, 3000),
+                cardCut(2, "블로그에서 확인하세요", null, 6000, 3000));
+
+        List<String> lines = dialogues(read(writer.write(jobId, "전기기능사", cuts)));
+
+        assertThat(lines).noneMatch(line -> line.contains(",title,"));
+        assertThat(lines).noneMatch(line -> line.contains(",sub,"));
+        assertThat(lines.stream()
+                .filter(line -> line.contains(",card,"))
+                .map(line -> line.split(",")[2])
+                .distinct()
+                .count()).isEqualTo(3);
+        assertThat(lines.stream().filter(line -> line.contains("m 0 0 l 120 0")).count()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("사진이 한 장이라도 있으면 기존 띠 자막으로 그린다")
+    void keepsBandSubtitleWhenAnyPhoto() throws IOException {
+        List<CutInput> cuts = List.of(
+                cut(0, "첫 자막", 0, 3000),
+                cardCut(1, "사진 없는 컷", null, 3000, 3000));
+
+        List<String> lines = dialogues(read(writer.write(jobId, "전기기능사", cuts)));
+
+        assertThat(lines).anyMatch(line -> line.contains(",title,"));
+        assertThat(lines).noneMatch(line -> line.contains(",card,"));
+    }
+
     private CutInput cut(int cutOrder, String caption, int startMs, int audioMs) {
         return cut(cutOrder, caption, null, startMs, audioMs);
     }
 
     private CutInput cut(int cutOrder, String caption, String highlight, int startMs, int audioMs) {
+        return new CutInput(cutOrder, "내레이션", caption, highlight,
+                Path.of("photo.jpg"), null, audioMs, startMs, null);
+    }
+
+    private CutInput cardCut(int cutOrder, String caption, String highlight, int startMs, int audioMs) {
         return new CutInput(cutOrder, "내레이션", caption, highlight, null, null, audioMs, startMs, null);
     }
 

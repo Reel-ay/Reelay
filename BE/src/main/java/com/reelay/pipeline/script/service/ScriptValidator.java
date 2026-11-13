@@ -150,6 +150,14 @@ public class ScriptValidator {
     private static final List<String> TRAILING_PARTICLES =
             List.of("에서", "으로", "에게", "부터", "까지", "은", "는", "을", "를");
 
+    // "은", "는", "을" 은 조사이기도 하고 관형사형 어미이기도 하다
+    // "강의를" 의 "를" 은 떼야 하지만 "어려워하는" 의 "는" 을 떼면 "어려워하" 라는 토막이 남는다
+    private static final List<String> MODIFIER_ENDINGS = List.of("은", "는", "을");
+
+    // 이 글자로 끝나면 조사를 뗀 것이 아니라 용언 어간을 자른 것이다
+    private static final List<String> VERB_STEM_TAILS =
+            List.of("하", "되", "있", "없", "받");
+
     private static final List<String> BOUND_NOUNS =
             List.of("수", "것", "때", "점", "줄", "바", "데", "뿐", "만큼");
 
@@ -170,10 +178,18 @@ public class ScriptValidator {
             if (space == cut.length() - 1) {
                 return trimmed;
             }
+            if (MODIFIER_ENDINGS.contains(particle) && endsWithVerbStem(cut)) {
+                log.debug("어미를 조사로 볼 뻔해 그대로 둡니다 - '{}'", trimmed);
+                return trimmed;
+            }
             log.debug("조사로 끝나는 caption 에서 조사를 뗐습니다 - '{}' -> '{}'", trimmed, cut);
             return cut;
         }
         return trimmed;
+    }
+
+    private static boolean endsWithVerbStem(String text) {
+        return VERB_STEM_TAILS.stream().anyMatch(text::endsWith);
     }
 
     // caption 안에 실제로 없으면 null. B 가 강조 태그 위치를 못 찾는 사고를 막는다
