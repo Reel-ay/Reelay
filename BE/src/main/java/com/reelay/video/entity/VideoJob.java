@@ -147,10 +147,6 @@ public class VideoJob {
         return status == JobStatus.DONE;
     }
 
-    public boolean isFinished() {
-        return status == JobStatus.DONE || status == JobStatus.FAILED;
-    }
-
     private void touch() {
         this.updatedAt = LocalDateTime.now();
     }

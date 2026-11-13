@@ -20,19 +20,15 @@ public class BrandAssets {
     private static final String CLASSPATH_DIR = "/brand/";
     private static final String TMP_DIR_NAME = "reelay-brand";
     private static final String LOGO_FILE = "logo.png";
-    private static final String LOGO_WHITE_FILE = "logo_white.png";
     private static final String COVER_FILE = "card/cover.png";
     private static final int CARD_TEMPLATE_COUNT = 2;
 
     private final Path logo;
-    private final Path logoWhite;
     private final Path cover;
     private final List<Path> cardTemplates;
 
     public BrandAssets() {
         this.logo = extract(LOGO_FILE);
-        this.logoWhite = extract(LOGO_WHITE_FILE);
-
         this.cover = extract(COVER_FILE);
 
         List<Path> templates = new ArrayList<>(CARD_TEMPLATE_COUNT);
@@ -44,10 +40,6 @@ public class BrandAssets {
 
     public Path logo() {
         return logo;
-    }
-
-    public Path logoWhite() {
-        return logoWhite;
     }
 
     // 첫 컷은 인물 표지, 나머지는 본문 템플릿을 컷 번호대로 돌려 쓴다
