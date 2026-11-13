@@ -10,6 +10,8 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 public class BrandAssets {
@@ -19,13 +21,25 @@ public class BrandAssets {
     private static final String TMP_DIR_NAME = "reelay-brand";
     private static final String LOGO_FILE = "logo.png";
     private static final String LOGO_WHITE_FILE = "logo_white.png";
+    private static final String COVER_FILE = "card/cover.png";
+    private static final int CARD_TEMPLATE_COUNT = 2;
 
     private final Path logo;
     private final Path logoWhite;
+    private final Path cover;
+    private final List<Path> cardTemplates;
 
     public BrandAssets() {
         this.logo = extract(LOGO_FILE);
         this.logoWhite = extract(LOGO_WHITE_FILE);
+
+        this.cover = extract(COVER_FILE);
+
+        List<Path> templates = new ArrayList<>(CARD_TEMPLATE_COUNT);
+        for(int i = 1; i <= CARD_TEMPLATE_COUNT; i++) {
+            templates.add(extract("card/card" + i + ".png"));
+        }
+        this.cardTemplates = List.copyOf(templates);
     }
 
     public Path logo() {
@@ -36,11 +50,19 @@ public class BrandAssets {
         return logoWhite;
     }
 
+    // 첫 컷은 인물 표지, 나머지는 본문 템플릿을 컷 번호대로 돌려 쓴다
+    public Path cardTemplate(int index) {
+        if(index == 0) {
+            return cover;
+        }
+        return cardTemplates.get(Math.floorMod(index - 1, cardTemplates.size()));
+    }
+
     private Path extract(String name) {
         Path dir = Path.of(System.getProperty("java.io.tmpdir"), TMP_DIR_NAME);
         Path target = dir.resolve(name);
         try {
-            Files.createDirectories(dir);
+            Files.createDirectories(target.getParent());
             try(InputStream in = getClass().getResourceAsStream(CLASSPATH_DIR + name)) {
                 if(in == null) {
                     throw new IllegalStateException("브랜드 리소스 없음 - " + CLASSPATH_DIR + name);
