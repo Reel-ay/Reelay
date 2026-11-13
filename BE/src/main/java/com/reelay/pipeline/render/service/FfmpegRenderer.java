@@ -32,8 +32,11 @@ public class FfmpegRenderer implements VideoRenderer {
 
     private static final int MIN_AUDIO_MS = 200;
 
+    // 템플릿이 1080x1920 이 아니어도 깨지지 않게 맞춰 자른다
     private static final String CARD_FILTER =
-            "fps=" + FPS + ",setsar=1,format=yuv420p";
+            "scale=" + WIDTH + ":" + HEIGHT + ":force_original_aspect_ratio=increase"
+                    + ",crop=" + WIDTH + ":" + HEIGHT
+                    + ",fps=" + FPS + ",setsar=1,format=yuv420p";
 
     // 사진 띠: y 440~1380 (1080x940) 고정. 위는 제목, 띠 안 아래쪽에 자막이 겹친다
     private static final int BAND_Y = 440;
@@ -42,6 +45,11 @@ public class FfmpegRenderer implements VideoRenderer {
 
     private static final int SAFE_BOTTOM = 1540;
     private static final int LOGO_WIDTH = 350;
+
+    // 표지 컷은 로고를 일러스트 노트북 화면 위에 올린다
+    private static final int COVER_LOGO_WIDTH = 240;
+    private static final int COVER_LOGO_X = 484;
+    private static final int COVER_LOGO_Y = 1451;
 
     // 사진 비율과 상관없이 항상 같은 띠 안에 넣는다
     // - 배경: 사진을 띠에 꽉 차게 키워 자른 뒤 흐리게 (cover + blur)
@@ -79,12 +87,12 @@ public class FfmpegRenderer implements VideoRenderer {
         List<Path> segments = new ArrayList<>(cuts.size());
         boolean cardMode = cuts.stream().allMatch(cut -> cut.imagePath() == null);
         for(int i = 0; i < cuts.size(); i++) {
-            segments.add(renderCut(tmp, cuts.get(i), i, cuts.size(), cardMode));
+            segments.add(renderCut(tmp, cuts.get(i), i, cardMode));
         }
 
         Path video = concat(tmp, segments, "video.txt", "joined.mp4");
         if(subtitleFile != null) {
-            video = burnSubtitles(tmp, video, subtitleFile, cardMode ? orangeCutRanges(cuts) : null);
+            video = burnSubtitles(tmp, video, subtitleFile, cardMode ? coverRange(cuts) : null);
         }
 
         List<Path> wavs = cuts.stream().map(CutInput::audioPath).toList();
@@ -111,13 +119,12 @@ public class FfmpegRenderer implements VideoRenderer {
     }
 
     // 컷 1개 -> 1080*1920 영상
-    private Path renderCut(Path tmp, CutInput cut, int index, int total, boolean cardMode) {
+    private Path renderCut(Path tmp, CutInput cut, int index, boolean cardMode) {
         Path out = tmp.resolve("cut" + cut.cutOrder() + ".mp4");
 
         List<String> args = new ArrayList<>();
         if(cardMode) {
-            args.addAll(List.of("-f", "lavfi", "-i",
-                    "color=c=" + CardStyle.of(index, total).base + ":s=" + WIDTH + "x" + HEIGHT + ":r=" + FPS));
+            args.addAll(List.of("-loop", "1", "-i", brandAssets.cardTemplate(index).toString()));
         }
         else if(cut.imagePath() == null) {
             args.addAll(List.of("-f", "lavfi", "-i",
@@ -137,30 +144,6 @@ public class FfmpegRenderer implements VideoRenderer {
 
         ffmpeg.run(args, CUT_TIMEOUT);
         return out;
-    }
-
-    // 배경은 단색만 깔고 원·막대·글자는 전부 ASS 에서 그린다 (AssSubtitleWriter.cardLine)
-    private enum CardStyle {
-        TITLE("0xF26B1A"),
-        LIGHT("0xF7F3EC"),
-        DARK("0x151515");
-
-        private final String base;
-
-        CardStyle(String base) {
-            this.base = base;
-        }
-
-        // 첫 컷은 제목, 마지막 컷은 마무리. 사이 본문은 밝고 어두운 배경을 번갈아 쓴다
-        static CardStyle of(int index, int total) {
-            if(index == 0) {
-                return TITLE;
-            }
-            if(index == total - 1) {
-                return DARK;
-            }
-            return index % 2 == 1 ? LIGHT : DARK;
-        }
     }
 
     // 프레임 수
@@ -193,28 +176,26 @@ public class FfmpegRenderer implements VideoRenderer {
     }
 
     // 자막 파일 -> 영상
-    private Path burnSubtitles(Path tmp, Path video, Path subtitleFile, String orangeRanges) {
+    private Path burnSubtitles(Path tmp, Path video, Path subtitleFile, String coverRange) {
         Path out = tmp.resolve("subbed.mp4");
 
         String place = "overlay=(W-w)/2:'" + BAND_Y + "+" + BAND_HEIGHT
                 + "+(" + (SAFE_BOTTOM - BAND_Y - BAND_HEIGHT) + "-h)/2':shortest=1";
 
         String filter;
-        List<String> inputs;
-        if(orangeRanges == null) {
+        if(coverRange == null) {
             filter = "[1:v]scale=" + LOGO_WIDTH + ":-1[lg];[0:v][lg]" + place;
-            inputs = List.of("-i", video.toString(),
-                    "-loop", "1", "-i", brandAssets.logo().toString());
         }
         else {
-            // 오렌지 카드에서만 로고가 배경에 묻혀서 그 구간만 흰 로고를 깐다
-            filter = "[1:v]scale=" + LOGO_WIDTH + ":-1[dk];[2:v]scale=" + LOGO_WIDTH + ":-1[wt]"
-                    + ";[0:v][dk]" + place + ":enable='not(" + orangeRanges + ")'[a]"
-                    + ";[a][wt]" + place + ":enable='" + orangeRanges + "'";
-            inputs = List.of("-i", video.toString(),
-                    "-loop", "1", "-i", brandAssets.logo().toString(),
-                    "-loop", "1", "-i", brandAssets.logoWhite().toString());
+            filter = "[1:v]split=2[l1][l2]"
+                    + ";[l1]scale=" + LOGO_WIDTH + ":-1[lg]"
+                    + ";[l2]scale=" + COVER_LOGO_WIDTH + ":-1[cv]"
+                    + ";[0:v][lg]" + place + ":enable='not(" + coverRange + ")'[a]"
+                    + ";[a][cv]overlay=" + COVER_LOGO_X + ":" + COVER_LOGO_Y + "-h/2"
+                    + ":shortest=1:enable='" + coverRange + "'";
         }
+        List<String> inputs = List.of("-i", video.toString(),
+                "-loop", "1", "-i", brandAssets.logo().toString());
 
         filter += ",ass=" + Ffmpeg.filterPath(subtitleFile)
                 + ":fontsdir=" + Ffmpeg.filterPath(fontDir.path()) + "[v]";
@@ -232,21 +213,11 @@ public class FfmpegRenderer implements VideoRenderer {
         return out;
     }
 
-    // 오렌지 배경 카드가 나오는 시간 구간. CardStyle.of 와 같은 규칙이어야 한다
-    private String orangeCutRanges(List<CutInput> cuts) {
-        StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < cuts.size(); i++) {
-            if(CardStyle.of(i, cuts.size()) != CardStyle.TITLE) {
-                continue;
-            }
-            CutInput cut = cuts.get(i);
-            if(!sb.isEmpty()) {
-                sb.append("+");
-            }
-            sb.append("between(t,%.3f,%.3f)"
-                    .formatted(cut.startMs() / 1000.0, (cut.startMs() + cut.audioMs()) / 1000.0));
-        }
-        return sb.isEmpty() ? "0" : sb.toString();
+    // 표지 컷이 나오는 시간 구간
+    private String coverRange(List<CutInput> cuts) {
+        CutInput first = cuts.get(0);
+        return "between(t,%.3f,%.3f)"
+                .formatted(first.startMs() / 1000.0, (first.startMs() + first.audioMs()) / 1000.0);
     }
 
     // 영상 파일 + 소리 파일

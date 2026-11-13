@@ -64,24 +64,30 @@ public final class ScriptPrompts {
             "                  · 블로그 - 강의가 궁금하면 블로그에서 보라고 넘긴다.";
 
     private static final String STEP_NO_BLOG =
-            "                  · 마무리 - 핵심을 한 번 더 짚으며 끝낸다. 블로그는 언급하지 않는다.\n"
-                    + "                - 마무리는 반드시 마지막 컷이다. 그 뒤에 컷을 두지 않는다.\n"
+            "                  · 마무리 - 핵심을 한 번 더 짚으며 끝낸다. 블로그는 언급하지 않는다.";
+
+    private static final String STEP_NO_BLOG_TAIL =
+            "                - 붙여넣은 글은 블로그보다 건질 내용이 적다. 10컷으로 끝나도 된다.";
+
+    private static final String STEP_COMMON =
+            "                - 마지막 단계는 반드시 마지막 컷이다. 그 뒤에 컷을 두지 않는다.\n"
                     + "                - 지나간 대목으로 되돌아가지 않는다. 강의를 말한 뒤 다시 공부법으로 가지 않는다.\n"
-                    + "                - 쓸 내용이 떨어지면 컷을 줄이고 끝낸다. 컷 수를 채우려고 앞에서 한 말을 다시 하지 않는다.\n"
-                    + "                  붙여넣은 글은 블로그보다 건질 내용이 적다. 10컷으로 끝나도 된다.";
+                    + "                - 쓸 내용이 떨어지면 컷을 줄이고 끝낸다. 컷 수를 채우려고 앞에서 한 말을 다시 하지 않는다.";
 
     private static final String ENDING_BLOG =
-            "                - 강의가 궁금하면 블로그에서 보라고 넘긴다. 같은 권유를 반복하지 않는다.";
+            "                - 강의가 궁금하면 블로그에서 보라고 넘긴다.";
 
     private static final String ENDING_NO_BLOG =
             "                - 강의 권유는 앞의 강의 대목에서 이미 했다. 엔딩에서 다시 권하지 않는다.\n"
-                    + "                  \"강의를 찾아보세요\" 가 중간과 마지막에 두 번 나오면 안 된다.\n"
-                    + "                - 마무리는 한 컷이다. 두 컷에 나눠 쓰지 않는다.\n"
-                    + "                  \"차근차근 준비하셔서 좋은 결과 기대하세요\" 뒤에\n"
-                    + "                  \"좋은 결과 얻으셨으면 좋겠습니다\" 가 또 오면 같은 말을 두 번 한 것이다.\n"
                     + "                - 핵심을 한 문장으로 짚거나 덕담으로 끝낸다. 둘 중 하나만 한다.\n"
-                    + "                  앞 컷에서 한 말을 표현만 바꿔 되풀이하지 않는다.\n"
                     + "                - 블로그, 링크, 주소를 언급하지 않는다. 이 영상에는 연결된 글이 없다.";
+
+    private static final String ENDING_COMMON =
+            "                - 엔딩은 한 컷이다. 두 컷에 나눠 쓰지 않는다.\n"
+                    + "                - 덕담으로 끝낼 때는 결과나 합격을 비는 말을 한 번만 쓴다.\n"
+                    + "                  같은 뜻의 덕담을 어미만 바꿔 이어 붙이면 한 말을 두 번 한 것이다.\n"
+                    + "                - 앞 컷에서 한 말을 표현만 바꿔 되풀이하지 않는다.\n"
+                    + "                - 같은 권유를 반복하지 않는다.";
 
     private ScriptPrompts() {
     }
@@ -189,14 +195,24 @@ public final class ScriptPrompts {
 
                 %s                """.formatted(
                 noBlog ? CLOSING_NO_BLOG : CLOSING_BLOG,
-                noBlog ? STEP_NO_BLOG : STEP_BLOG,
+                step(noBlog),
                 ScriptRules.MAX_VIDEO_SECONDS, ScriptRules.PREFERRED_VIDEO_SECONDS,
                 targetCuts,
                 ScriptRules.MIN_NARRATION_CHARS, ScriptRules.MAX_NARRATION_CHARS,
                 ScriptRules.minTotalChars(targetCuts), ScriptRules.maxTotalChars(targetCuts),
-                noBlog ? ENDING_NO_BLOG : ENDING_BLOG,
+                ending(noBlog),
                 noImages ? CAPTION_CARD : CAPTION_PHOTO,
                 noImages ? NO_SOURCE_IMAGE : SOURCE_IMAGE);
+    }
+
+    private static String step(boolean noBlog) {
+        String last = noBlog ? STEP_NO_BLOG : STEP_BLOG;
+        String tail = noBlog ? "\n" + STEP_NO_BLOG_TAIL : "";
+        return last + "\n" + STEP_COMMON + tail;
+    }
+
+    private static String ending(boolean noBlog) {
+        return (noBlog ? ENDING_NO_BLOG : ENDING_BLOG) + "\n" + ENDING_COMMON;
     }
 
     public static String user(CrawledPost post) {
