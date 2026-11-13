@@ -1,0 +1,60 @@
+.aside {
+  text-align: center;
+}
+
+.aside-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+
+  margin-bottom: var(--s3);
+}
+
+.phone {
+  aspect-ratio: 9 / 16;
+
+  max-width: 240px;
+  margin: 0 auto;
+
+  border-radius: var(--r-lg);
+  overflow: hidden;
+
+  position: relative;
+
+  background: linear-gradient(170deg, var(--ink-03), var(--ink-10));
+
+  border: 1px solid var(--ink-06);
+  box-shadow: var(--shadow);
+}
+
+.phone .example-video {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  background: #171717;
+}
+
+.aside-note {
+  margin-top: var(--s3);
+
+  font-size: 12px;
+  color: var(--ink-45);
+
+  line-height: 1.7;
+}
+
+@media (min-width: 960px) {
+  .aside {
+    padding-top: var(--s6);
+    text-align: left;
+  }
+
+  .phone {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}

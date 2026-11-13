@@ -1,0 +1,71 @@
+.site-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+
+  background: rgba(255, 255, 255, .9);
+  backdrop-filter: saturate(1.4) blur(10px);
+
+  border-bottom: 1px solid var(--ink-06);
+}
+
+.head-in {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 var(--s5);
+
+  height: 56px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+
+  text-decoration: none;
+}
+
+.mark {
+  width: 28px;
+  height: 28px;
+
+  border-radius: var(--r-sm);
+  flex: none;
+
+  background: var(--brand);
+
+  display: grid;
+  place-items: center;
+}
+
+.mark svg {
+  display: block;
+}
+
+.brand-name {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 16px;
+  letter-spacing: -.02em;
+}
+
+.head-note {
+  display: none;
+  font-size: 13px;
+  color: var(--ink-45);
+}
+
+@media (min-width: 768px) {
+  .head-in {
+    height: 64px;
+  }
+
+  .head-note {
+    display: block;
+  }
+}

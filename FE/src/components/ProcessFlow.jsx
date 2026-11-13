@@ -1,3 +1,5 @@
+import './ProcessFlow.css'
+
 const processes = [
   {
     number: '01',

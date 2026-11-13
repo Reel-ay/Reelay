@@ -1,0 +1,27 @@
+.site-foot {
+  border-top: 1px solid var(--ink-06);
+
+  background: var(--ink-03);
+
+  padding: var(--s5) 0 var(--s6);
+}
+
+.foot-in {
+  max-width: 1120px;
+
+  margin: 0 auto;
+  padding: 0 var(--s5);
+
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: var(--s2) var(--s4);
+
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.copy {
+  font-size: 12px;
+  color: var(--ink-45);
+}

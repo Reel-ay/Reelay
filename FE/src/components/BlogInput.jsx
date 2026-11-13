@@ -1,3 +1,5 @@
+import './BlogInput.css'
+
 function BlogInput({
   mode,
   setMode,
