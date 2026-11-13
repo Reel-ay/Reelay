@@ -5,8 +5,6 @@ import com.reelay.common.brand.BrandAssets;
 import com.reelay.common.font.FontDir;
 import com.reelay.common.storage.StorageService;
 import com.reelay.video.dto.CutInput;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -21,8 +19,6 @@ import java.util.UUID;
 
 @Component
 public class FfmpegRenderer implements VideoRenderer {
-    private static final Logger log = LoggerFactory.getLogger(FfmpegRenderer.class);
-
     private static final int WIDTH = 1080;
     private static final int HEIGHT = 1920;
     private static final int FPS = 30;
