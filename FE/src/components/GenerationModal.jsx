@@ -43,9 +43,14 @@ function GenerationModal({ steps = [], errorMessage, onClose}) {
       <div className="modal generation-modal">
 
         <div className="modal-header">
-          <h2>쇼츠 영상 생성 중</h2>
+          <h2>
+            {errorMessage ? '영상 생성에 실패했습니다.' : '쇼츠 영상 생성 중'}
+          </h2>
+
           <p>
-            블로그 내용을 분석하고 영상을 제작하고 있습니다.
+            {errorMessage
+              ? '영상 생성 중 문제가 발생했습니다.'
+              : '블로그 내용을 분석하고 영상을 제작하고 있습니다.'}
           </p>
         </div>
 

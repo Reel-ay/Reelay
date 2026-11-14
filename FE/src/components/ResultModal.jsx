@@ -1,6 +1,6 @@
 import './ResultModal.css'
 
-function ResultModal({ videoUrl, videoTitle, onClose, onRetry }) {
+function ResultModal({ videoUrl, videoTitle, videoOverlayTitle, videoDownloadUrl, onClose, onRetry }) {
   return (
     <div className="modal-overlay">
       <div className="modal result-modal">
@@ -22,11 +22,17 @@ function ResultModal({ videoUrl, videoTitle, onClose, onRetry }) {
         <h3 className="result-title">
           {videoTitle}
         </h3>
+        
+        {videoOverlayTitle && (
+          <p className="result-overlay-title">
+            영상 제목: {videoOverlayTitle.keyword}
+            {videoOverlayTitle.hook && ` · ${videoOverlayTitle.hook}`}
+          </p>
+        )}
 
         <div className="result-actions">
           <a
-            href={videoUrl}
-            download
+            href={videoDownloadUrl}
             className="download-button"
             target="_blank"
             rel="noreferrer"

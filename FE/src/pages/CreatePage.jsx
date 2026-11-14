@@ -6,7 +6,7 @@ import ExampleVideo from '../components/ExampleVideo'
 import ProcessFlow from '../components/ProcessFlow'
 import GenerationModal from '../components/GenerationModal'
 import ResultModal from '../components/ResultModal'
-import {createVideo,getVideoStatus} from '../api/videoApi'
+import {createVideo,createManualVideo,getVideoStatus} from '../api/videoApi'
 import { resolveMediaUrl } from '../api/api'
 
 
@@ -21,12 +21,12 @@ function CreatePage() {
   // 화면 상태
   const [status, setStatus] = useState('empty')
 
-  // 영상 제작 진행 단계
-  const [, setCurrentStep] = useState(0)
-
   // 생성된 영상 정보
   const [videoUrl, setVideoUrl] = useState('')
+  //결과 모달에 표시할 블로그 제목
   const [videoTitle, setVideoTitle] = useState('')
+  // 영상 내부에 표시되는 제목 정보
+  const [videoOverlayTitle, setVideoOverlayTitle] = useState(null)
 
   // 백엔드 작업 ID
   const [jobId, setJobId] = useState(null)
@@ -37,60 +37,105 @@ function CreatePage() {
   // 영상 생성 오류 메시지
   const [generationError, setGenerationError] = useState('')
   
+  // 본문 직접 입력 시 제목 설정
+  const [titleMode, setTitleMode] = useState('AUTO')
+  const [manualTitle, setManualTitle] = useState('')
+  const [titleHook, setTitleHook] = useState('')
+
+  // 업로드 이미지 파일
+  const [images, setImages] = useState([])
+
+  const [videoDownloadUrl, setVideoDownloadUrl] = useState('')
+
   // 영상 생성 요청
-  
   async function handleSubmit(e) {
-    e.preventDefault()
+      e.preventDefault()
 
-    const value = mode === 'url' ? url.trim() : text.trim()
+      const value = mode === 'url' ? url.trim() : text.trim()
 
-    if (!value) {
-      alert('블로그 주소 또는 본문을 입력해 주세요.')
-      return
-    }
-
-    // 현재 백엔드 API는 sourceUrl 방식으로 협의됨
-    if (mode !== 'url') {
-      alert('현재는 블로그 URL 입력 방식만 지원합니다.')
-      return
-    }
-
-    try {
-      const parsedUrl = new URL(value)
-
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        alert('올바른 블로그 주소를 입력해 주세요.')
+      // 공통 입력값 검사
+      if (!value) {
+        alert('블로그 주소 또는 본문을 입력해 주세요.')
         return
       }
-    } catch {
-      alert('올바른 블로그 주소를 입력해 주세요.')
-      return
-    }
 
-    setCurrentStep(0)
-    setSteps([])
-    setJobId(null)
-    setVideoUrl('')
-    setVideoTitle('')
-    setStatus('loading')
+      // URL 입력 방식
+      if (mode === 'url') {
+        try {
+          const parsedUrl = new URL(value)
 
-    try {
-      // 백엔드에 영상 생성 요청
-      const data = await createVideo(value)
-
-      if (!data?.jobId) {
-        throw new Error('영상 작업 ID를 전달받지 못했습니다.')
+          if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+            alert('올바른 블로그 주소를 입력해 주세요.')
+            return
+          }
+        } catch {
+          alert('올바른 블로그 주소를 입력해 주세요.')
+          return
+        }
       }
 
-      // 서버에서 받은 작업 ID 저장
-      setJobId(data.jobId)
+      // 본문 입력 방식
+      if (mode === 'text') {
+        const bodyLength = value.replace(/\s/g, '').length
 
-    } catch (error) {
-      alert(error.message || '영상 생성 요청에 실패했습니다.')
-      setStatus('empty')
-    }
+        if (bodyLength < 100) {
+          alert('블로그 본문은 공백 제외 100자 이상 입력해 주세요.')
+          return
+        }
+
+        if (bodyLength > 20000) {
+          alert('블로그 본문은 공백 제외 20,000자 이하로 입력해 주세요.')
+          return
+        }
+
+        if (titleMode === 'MANUAL' && !manualTitle.trim()) {
+          alert('영상 제목을 입력해 주세요.')
+          return
+        }
+
+        if (titleMode === 'MANUAL' && manualTitle.trim().length > 20) {
+          alert('영상 제목은 20자 이하로 입력해 주세요.')
+          return
+        }
+      }
+
+      // 기존 생성 정보 초기화
+      setSteps([])
+      setJobId(null)
+      setVideoUrl('')
+      setVideoDownloadUrl('')
+      setVideoTitle('')
+      setVideoOverlayTitle(null)
+      setGenerationError('')
+      setStatus('loading')
+
+      try {
+        let data
+
+        if (mode === 'url') {
+          // 기존 URL 방식 API
+          data = await createVideo(value)
+        } else {
+          // 신규 본문 입력 방식 API
+          data = await createManualVideo({
+            body: value,
+            titleMode,
+            title: manualTitle.trim(),
+            titleHook: titleHook.trim(),
+            images,
+          })
+        }
+
+        if (!data?.jobId) {
+          throw new Error('영상 작업 ID를 전달받지 못했습니다.')
+        }
+
+        setJobId(data.jobId)
+      } catch (error) {
+        alert(error.message || '영상 생성 요청에 실패했습니다.')
+        setStatus('empty')
+      }
   }
-
 
   useEffect(() => {
     if (status !== 'loading' || !jobId) return
@@ -111,21 +156,6 @@ function CreatePage() {
         // 백엔드에서 전달받은 단계 정보 저장
         const receivedSteps = data.steps || []
         setSteps(receivedSteps)
-
-        // 현재 실행 중인 단계 인덱스 계산
-        const runningIndex = receivedSteps.findIndex(
-          (step) => step.status === 'RUNNING'
-        )
-
-        const doneCount = receivedSteps.filter(
-          (step) => step.status === 'DONE'
-        ).length
-
-        setCurrentStep(
-          runningIndex >= 0
-            ? runningIndex
-            : Math.max(doneCount - 1, 0)
-        )
 
         // 영상 생성 실패
         if (data.status === 'FAILED') {
@@ -153,7 +183,14 @@ function CreatePage() {
           }
 
           setVideoUrl(resolveMediaUrl(data.videoUrl))
+
+          // 백엔드 다운로드 전용 주소
+          setVideoDownloadUrl(
+            resolveMediaUrl(`/api/videos/${jobId}/file?download=true`)
+          )
+
           setVideoTitle(data.title || '블로그 홍보 쇼츠')
+          setVideoOverlayTitle(data.videoTitle || null)
           setStatus('completed')
           return
         }
@@ -193,11 +230,12 @@ function CreatePage() {
   // 결과 모달 닫기
   function handleClose() {
     setStatus('empty')
-    setCurrentStep(0)
     setSteps([])
     setJobId(null)
     setVideoUrl('')
+    setVideoDownloadUrl('')
     setVideoTitle('')
+    setVideoOverlayTitle(null)
     setGenerationError('')
   }
 
@@ -206,12 +244,19 @@ function CreatePage() {
     setUrl('')
     setText('')
     setMode('url')
-    setCurrentStep(0)
+    //본문 입력 옵션 초기화
+    setTitleMode('AUTO')
+    setManualTitle('')
+    setTitleHook('')
+    setImages([])
+    //영상 생성 정보 초기화
     setSteps([])
     setJobId(null)
     setVideoUrl('')
+    setVideoDownloadUrl('')
     setVideoTitle('')
     setStatus('empty')
+    setVideoOverlayTitle(null)
     setGenerationError('')
   }
 
@@ -232,6 +277,14 @@ function CreatePage() {
                 setText={setText}
                 status={status}
                 onSubmit={handleSubmit}
+                titleMode={titleMode}
+                setTitleMode={setTitleMode}
+                manualTitle={manualTitle}
+                setManualTitle={setManualTitle}
+                titleHook={titleHook}
+                setTitleHook={setTitleHook}
+                images={images}
+                setImages={setImages}
               />
 
             </section>
@@ -256,7 +309,9 @@ function CreatePage() {
       {status === 'completed' && (
         <ResultModal
           videoUrl={videoUrl}
+          videoDownloadUrl={videoDownloadUrl}
           videoTitle={videoTitle}
+          videoOverlayTitle={videoOverlayTitle}
           onClose={handleClose}
           onRetry={handleRetry}
         />
