@@ -21,12 +21,6 @@ function ExampleVideo() {
           브라우저가 동영상 재생을 지원하지 않습니다.
         </video>
       </div>
-
-      <p className="aside-note">
-        미리 테스트하면서 만들어놓은 쇼츠넣기.
-        <br />
-        ...
-      </p>
     </aside>
   )
 }
