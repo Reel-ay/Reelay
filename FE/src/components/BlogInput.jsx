@@ -1,5 +1,5 @@
 import './BlogInput.css'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 function BlogInput({
   mode,
@@ -25,19 +25,36 @@ function BlogInput({
   const [imageError, setImageError] = useState('')
   const [imagePreviews, setImagePreviews] = useState([])
 
-  // 이미지 미리보기 URL 생성 및 정리
-  useEffect(() => {
-    const previews = images.map((file) => ({
-      file,
-      url: URL.createObjectURL(file),
-    }))
+  // 생성한 이미지 미리보기 URL 관리
+const previewUrls = useRef(new Map())
 
-    setImagePreviews(previews)
-
-    return () => {
-      previews.forEach((preview) => URL.revokeObjectURL(preview.url))
+// images에서 삭제된 이미지의 미리보기 URL 정리
+useEffect(() => {
+  previewUrls.current.forEach((url, file) => {
+    if (!images.includes(file)) {
+      URL.revokeObjectURL(url)
+      previewUrls.current.delete(file)
     }
-  }, [images])
+  })
+}, [images])
+
+// 컴포넌트가 사라질 때 남아 있는 미리보기 URL 정리
+useEffect(() => {
+  const urls = previewUrls.current
+
+  return () => {
+    urls.forEach((url) => {
+      URL.revokeObjectURL(url)
+    })
+
+    urls.clear()
+  }
+}, [])
+
+// 현재 업로드된 이미지의 미리보기만 표시
+const visibleImagePreviews = imagePreviews.filter(
+  (preview) => images.includes(preview.file)
+)
 
   function handleModeChange() {
     setMode(isUrl ? 'text' : 'url')
@@ -87,15 +104,36 @@ function BlogInput({
       return
     }
 
+    const newPreviews = selectedFiles.map((file) => {
+      const url = URL.createObjectURL(file)
+
+      previewUrls.current.set(file, url)
+
+      return { file, url }
+    })
+
+    setImagePreviews((prev) => [...prev, ...newPreviews])
     setImages(nextImages)
     setImageError('')
   }
 
   // 업로드 이미지 삭제
-  function handleImageRemove(index) {
+    function handleImageRemove(index) {
+    const removedImage = images[index]
+    const previewUrl = previewUrls.current.get(removedImage)
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      previewUrls.current.delete(removedImage)
+    }
+
+    setImagePreviews((prev) =>
+      prev.filter((preview) => preview.file !== removedImage)
+    )
+
     setImages(images.filter((_, i) => i !== index))
     setImageError('')
-  }
+    }
 
   return (
     <form className="card" onSubmit={onSubmit}>
@@ -258,9 +296,9 @@ function BlogInput({
               <p className="image-error">{imageError}</p>
             )}
 
-            {imagePreviews.length > 0 && (
+            {visibleImagePreviews.length > 0 && (
               <div className="image-preview-list">
-                {imagePreviews.map((preview, index) => (
+                {visibleImagePreviews.map((preview, index) => (
                   <div className="image-preview-item" key={`${preview.file.name}-${index}`}>
                     <img src={preview.url} alt={`첨부 이미지 ${index + 1}`} />
 
