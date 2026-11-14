@@ -6,11 +6,7 @@ import ExampleVideo from '../components/ExampleVideo'
 import ProcessFlow from '../components/ProcessFlow'
 import GenerationModal from '../components/GenerationModal'
 import ResultModal from '../components/ResultModal'
-<<<<<<< HEAD
 import {createVideo,createManualVideo,getVideoStatus} from '../api/videoApi'
-=======
-import {createVideo,getVideoStatus} from '../api/videoApi'
->>>>>>> origin/develop
 import { resolveMediaUrl } from '../api/api'
 
 
@@ -25,12 +21,6 @@ function CreatePage() {
   // 화면 상태
   const [status, setStatus] = useState('empty')
 
-<<<<<<< HEAD
-=======
-  // 영상 제작 진행 단계
-  const [, setCurrentStep] = useState(0)
-
->>>>>>> origin/develop
   // 생성된 영상 정보
   const [videoUrl, setVideoUrl] = useState('')
   //결과 모달에 표시할 블로그 제목
@@ -57,24 +47,9 @@ function CreatePage() {
 
   const [videoDownloadUrl, setVideoDownloadUrl] = useState('')
 
-  // 백엔드 작업 ID
-  const [jobId, setJobId] = useState(null)
-
-// 백엔드에서 전달받는 6단계 진행 정보
-  const [steps, setSteps] = useState([])
-
-  // 영상 생성 오류 메시지
-  const [generationError, setGenerationError] = useState('')
-  
   // 영상 생성 요청
-<<<<<<< HEAD
   async function handleSubmit(e) {
       e.preventDefault()
-=======
-  
-  async function handleSubmit(e) {
-    e.preventDefault()
->>>>>>> origin/develop
 
       const value = mode === 'url' ? url.trim() : text.trim()
 
@@ -84,7 +59,6 @@ function CreatePage() {
         return
       }
 
-<<<<<<< HEAD
       // URL 입력 방식
       if (mode === 'url') {
         try {
@@ -160,55 +134,9 @@ function CreatePage() {
       } catch (error) {
         alert(error.message || '영상 생성 요청에 실패했습니다.')
         setStatus('empty')
-=======
-    // 현재 백엔드 API는 sourceUrl 방식으로 협의됨
-    if (mode !== 'url') {
-      alert('현재는 블로그 URL 입력 방식만 지원합니다.')
-      return
-    }
-
-    try {
-      const parsedUrl = new URL(value)
-
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        alert('올바른 블로그 주소를 입력해 주세요.')
-        return
->>>>>>> origin/develop
       }
-    } catch {
-      alert('올바른 블로그 주소를 입력해 주세요.')
-      return
-    }
-
-<<<<<<< HEAD
-
-=======
-    setCurrentStep(0)
-    setSteps([])
-    setJobId(null)
-    setVideoUrl('')
-    setVideoTitle('')
-    setStatus('loading')
-
-    try {
-      // 백엔드에 영상 생성 요청
-      const data = await createVideo(value)
-
-      if (!data?.jobId) {
-        throw new Error('영상 작업 ID를 전달받지 못했습니다.')
-      }
-
-      // 서버에서 받은 작업 ID 저장
-      setJobId(data.jobId)
-
-    } catch (error) {
-      alert(error.message || '영상 생성 요청에 실패했습니다.')
-      setStatus('empty')
-    }
   }
 
-
->>>>>>> origin/develop
   useEffect(() => {
     if (status !== 'loading' || !jobId) return
 
@@ -229,24 +157,6 @@ function CreatePage() {
         const receivedSteps = data.steps || []
         setSteps(receivedSteps)
 
-<<<<<<< HEAD
-=======
-        // 현재 실행 중인 단계 인덱스 계산
-        const runningIndex = receivedSteps.findIndex(
-          (step) => step.status === 'RUNNING'
-        )
-
-        const doneCount = receivedSteps.filter(
-          (step) => step.status === 'DONE'
-        ).length
-
-        setCurrentStep(
-          runningIndex >= 0
-            ? runningIndex
-            : Math.max(doneCount - 1, 0)
-        )
-
->>>>>>> origin/develop
         // 영상 생성 실패
         if (data.status === 'FAILED') {
           const errorCode = data.error?.code
@@ -273,7 +183,6 @@ function CreatePage() {
           }
 
           setVideoUrl(resolveMediaUrl(data.videoUrl))
-<<<<<<< HEAD
 
           // 백엔드 다운로드 전용 주소
           setVideoDownloadUrl(
@@ -282,9 +191,6 @@ function CreatePage() {
 
           setVideoTitle(data.title || '블로그 홍보 쇼츠')
           setVideoOverlayTitle(data.videoTitle || null)
-=======
-          setVideoTitle(data.title || '블로그 홍보 쇼츠')
->>>>>>> origin/develop
           setStatus('completed')
           return
         }
@@ -324,20 +230,12 @@ function CreatePage() {
   // 결과 모달 닫기
   function handleClose() {
     setStatus('empty')
-<<<<<<< HEAD
     setSteps([])
     setJobId(null)
     setVideoUrl('')
     setVideoDownloadUrl('')
     setVideoTitle('')
     setVideoOverlayTitle(null)
-=======
-    setCurrentStep(0)
-    setSteps([])
-    setJobId(null)
-    setVideoUrl('')
-    setVideoTitle('')
->>>>>>> origin/develop
     setGenerationError('')
   }
 
@@ -346,7 +244,6 @@ function CreatePage() {
     setUrl('')
     setText('')
     setMode('url')
-<<<<<<< HEAD
     //본문 입력 옵션 초기화
     setTitleMode('AUTO')
     setManualTitle('')
@@ -360,14 +257,6 @@ function CreatePage() {
     setVideoTitle('')
     setStatus('empty')
     setVideoOverlayTitle(null)
-=======
-    setCurrentStep(0)
-    setSteps([])
-    setJobId(null)
-    setVideoUrl('')
-    setVideoTitle('')
-    setStatus('empty')
->>>>>>> origin/develop
     setGenerationError('')
   }
 

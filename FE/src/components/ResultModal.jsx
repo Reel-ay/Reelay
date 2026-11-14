@@ -1,10 +1,6 @@
 import './ResultModal.css'
 
-<<<<<<< HEAD
 function ResultModal({ videoUrl, videoTitle, videoOverlayTitle, videoDownloadUrl, onClose, onRetry }) {
-=======
-function ResultModal({ videoUrl, videoTitle, onClose, onRetry }) {
->>>>>>> origin/develop
   return (
     <div className="modal-overlay">
       <div className="modal result-modal">

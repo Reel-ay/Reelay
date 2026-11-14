@@ -17,7 +17,6 @@ export function getVideoStatus(jobId) {
     method: 'GET',
   })
 }
-<<<<<<< HEAD
 
 // 신규 블로그 본문 영상 생성 요청
 export function createManualVideo({
@@ -49,5 +48,3 @@ export function createManualVideo({
     body: formData,
   })
 }
-=======
->>>>>>> origin/develop

@@ -1,13 +1,8 @@
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/develop
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
 // 공통 API 요청 함수
 export async function apiRequest(path, options = {}) {
-<<<<<<< HEAD
   const isFormData = options.body instanceof FormData
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -16,12 +11,6 @@ export async function apiRequest(path, options = {}) {
       ...(isFormData ? {} : {
         'Content-Type': 'application/json',
       }),
-=======
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
->>>>>>> origin/develop
       ...options.headers,
     },
   })

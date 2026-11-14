@@ -1,8 +1,5 @@
 import './BlogInput.css'
-<<<<<<< HEAD
 import { useEffect, useState } from 'react'
-=======
->>>>>>> origin/develop
 
 function BlogInput({
   mode,
