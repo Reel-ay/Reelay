@@ -194,6 +194,7 @@
   gap: 8px;
 }
 
+<<<<<<< HEAD
 
 .conversion-item img {
   display: block;
@@ -201,11 +202,22 @@
   max-width: 150px;
   aspect-ratio: 9 / 16;
   height: auto;
+=======
+.conversion-item img {
+  display: block;
+  width: 100%;
+  max-width: 130px;
+  aspect-ratio: 9 / 16;
+  max-height: 105px;
+>>>>>>> origin/develop
   object-fit: cover;
   border-radius: 10px;
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/develop
 .conversion-item > span {
   font-size: 12px;
   font-weight: 600;
@@ -252,10 +264,14 @@
     font-size: 11px;
   }
   .conversion-item img {
+<<<<<<< HEAD
     max-width: 115px;
     width: 100%;
     aspect-ratio: 9 / 16;
     height: auto;
+=======
+    max-width: 105px;
+>>>>>>> origin/develop
   }
 }
 
@@ -264,6 +280,7 @@
     padding: var(--s6);
     margin-top: var(--s6);
   }
+<<<<<<< HEAD
 }
 
 
@@ -407,3 +424,6 @@
   font-size: 12px;
   color: var(--ink-45);
 }
+=======
+}
+>>>>>>> origin/develop

@@ -1,6 +1,10 @@
 import './ResultModal.css'
 
+<<<<<<< HEAD
 function ResultModal({ videoUrl, videoTitle, videoOverlayTitle, videoDownloadUrl, onClose, onRetry }) {
+=======
+function ResultModal({ videoUrl, videoTitle, onClose, onRetry }) {
+>>>>>>> origin/develop
   return (
     <div className="modal-overlay">
       <div className="modal result-modal">
@@ -34,6 +38,8 @@ function ResultModal({ videoUrl, videoTitle, videoOverlayTitle, videoDownloadUrl
           <a
             href={videoDownloadUrl}
             className="download-button"
+            target="_blank"
+            rel="noreferrer"
           >
             영상 다운로드
           </a>
