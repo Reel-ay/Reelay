@@ -5,16 +5,19 @@
 > (주)스마트동스쿨 기업실무체험 과제 - "블로그 콘텐츠를 활용한 생성형 AI 기반 숏폼 영상 제작 웹서비스 개발"
 
 블로그 URL 하나를 넣으면 본문 추출부터 영상 합성까지 한 번에 이어집니다.
-수작업으로 약 60분 걸리던 숏폼 제작을 약 10분으로 줄이는 것이 목표입니다.
+수작업으로 약 60분 걸리던 숏폼 제작이 10분 안에 끝납니다.
 
-<!-- 데모 영상 링크 또는 GIF -->
+| 블로그 URL 입력 | 6단계 진행 표시 |
+|---|---|
+| ![입력 화면](docs/images/screen-input.png) | ![진행 화면](docs/images/screen-progress.png) |
 
 ## 동작 방식
 
 ```mermaid
 flowchart LR
-    IN["블로그 URL"]
-    S1["1 CRAWL<br/>본문 · 이미지 추출"]
+    IN1["블로그 URL"]
+    IN2["본문 직접 입력"]
+    S1["1 CRAWL<br/>본문 · 이미지 확보"]
     S2["2 SCRIPT<br/>AI 대본 생성"]
     S3["3 IMAGE<br/>이미지 처리"]
     S4["4 TTS<br/>음성 생성"]
@@ -22,19 +25,45 @@ flowchart LR
     S6["6 RENDER<br/>9:16 합성"]
     OUT["숏폼 영상"]
 
-    IN --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> OUT
+    IN1 --> S1
+    IN2 --> S1
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> OUT
 ```
 
 | 단계 | 하는 일 |
 |---|---|
-| CRAWL | 네이버 블로그에서 제목·본문·이미지를 추출한다. 비공개·삭제된 글은 즉시 실패로 구분한다 |
-| SCRIPT | 본문을 LLM에 넘겨 훅 - 본문 - 엔딩 구조의 대본을 만든다. 문장당 15~25자로 제한해 분량을 맞춘다 |
+| CRAWL | 네이버 블로그에서 제목·본문·이미지를 추출한다. 비공개·삭제된 글은 즉시 실패로 구분한다. 본문을 직접 입력한 경우 입력값을 같은 형태로 변환한다 |
+| SCRIPT | 본문을 LLM에 넘겨 훅 - 본문 - 엔딩 구조의 대본을 만든다. 문장당 15~25자로 제한해 분량을 맞춘다. 제목을 직접 입력했으면 그 제목을 그대로 쓴다 |
 | IMAGE | 블로그에 있던 이미지를 장면에 배치한다. 쓸 이미지가 없으면 타이포그래피 카드로 대체한다 |
 | TTS | 장면별 음성을 만들고 길이를 실측해 장면 길이로 쓴다 |
 | CAPTION | 자막을 만든다. 폭을 계산해 2줄로 접고 키워드를 강조한다 |
 | RENDER | 장면별로 렌더한 뒤 이어 붙이고 음성을 합친다. 1080x1920, Ken Burns 5종 |
 
 이미지는 **AI로 새로 생성하지 않습니다.** 블로그에 이미 있는 이미지만 재활용합니다.
+
+## 입력 경로
+
+| 경로 | 쓰는 경우 |
+|---|---|
+| 블로그 URL | 네이버 블로그 글이 이미 있을 때. 본문과 이미지를 모두 가져온다 |
+| 본문 직접 입력 | 블로그에 올리지 않은 글로 만들 때. 사진은 직접 올리거나 생략한다 |
+
+사진을 올리지 않으면 전체가 타이포그래피 카드로 만들어집니다.
+
+## 범위
+
+**하는 일**
+
+- 블로그 URL 또는 본문 입력에서 숏폼 영상 한 편을 끝까지 만든다
+- 6단계 진행 상태를 실시간으로 보여주고, 실패한 단계를 지목한다
+- 완성된 영상을 재생하고 내려받는다
+
+**하지 않는 일**
+
+- 만들어진 영상을 부분 수정하지 않는다. 다시 만드는 것으로 대신한다
+- 영상 템플릿을 고르지 않는다. 디자인은 한 종류로 고정이다
+- 회원 가입과 로그인이 없다. 작업 번호를 아는 사람이 소유자다
+- 완성된 영상을 SNS에 바로 올리지 않는다. 내려받아 직접 올린다
 
 ## 시스템 구조
 
@@ -43,7 +72,7 @@ flowchart TB
     User["사용자"]
 
     subgraph FE["Frontend · React 19 · Vite"]
-        UI["블로그 URL 입력 · 진행 표시 · 결과 재생"]
+        UI["URL 입력 · 본문 입력 · 진행 표시 · 결과 재생"]
     end
 
     subgraph BE["Backend · Spring Boot 4 · Java 17"]
@@ -87,7 +116,7 @@ flowchart TB
 
 | 영역 | 기술 |
 |---|---|
-| Backend | Java 17, Spring Boot 4, Spring AI (OpenAI), Spring Data JPA, Flyway, MySQL 8.4, Jsoup |
+| Backend | Java 17, Spring Boot 4.1, Spring AI (OpenAI), Spring Data JPA, Flyway, MySQL 8.4, Jsoup |
 | Frontend | React 19, Vite |
 | 영상 처리 | FFmpeg |
 
@@ -112,6 +141,7 @@ flowchart TB
 | `REELAY_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | 허용할 프론트엔드 출처 |
 | `REELAY_SCRIPT_MODEL` | `gpt-4o-mini` | 대본 생성 모델 |
 | `REELAY_TTS_VOICE` | `nova` | TTS 목소리 |
+| `REELAY_FAILED_TMP_RETENTION_DAYS` | `3` | 실패한 작업의 임시 파일 보관 일수 |
 
 비밀값은 `BE/src/main/resources/application-local.properties`에 두세요. `.gitignore` 대상입니다.
 생성된 이미지·음성·영상은 `~/.reelay/storage`에 쌓입니다. `reelay.storage.root`로 바꿀 수 있습니다.
@@ -138,23 +168,10 @@ Base URL `/api/videos` · 인증 없음 (작업 번호를 아는 사람이 소�
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| `POST` | `/api/videos` | 영상 생성 요청. `202` + 작업 번호를 즉시 반환 |
+| `POST` | `/api/videos` | 블로그 URL로 영상 생성 요청. `202` + 작업 번호를 즉시 반환 |
+| `POST` | `/api/videos/manual` | 본문을 직접 넘겨 영상 생성 요청. `multipart/form-data`, 사진은 선택 |
 | `GET` | `/api/videos/{jobId}` | 진행 상태 조회. 6단계 체크리스트와 결과를 함께 준다 |
 | `GET` | `/api/videos/{jobId}/file` | 결과 영상. 구간 탐색 지원, `?download=true`면 첨부파일 |
 | `GET` | `/api/videos/{jobId}/scenes/{cutOrder}/image` | 장면 이미지 |
 
 실패한 작업도 `200`으로 응답합니다. 조회 자체는 성공했고 실패는 데이터이기 때문입니다.
-
-## 개발 현황
-
-| 영역 | 상태 |
-|---|---|
-| CRAWL 블로그 크롤링 | 완료 |
-| SCRIPT AI 대본 생성 | 완료 |
-| IMAGE 이미지 처리 | 진행 중 |
-| TTS 음성 생성 | 완료 |
-| CAPTION 자막 생성 | 진행 중 |
-| RENDER 영상 합성 | 완료 |
-| REST API · 작업 상태 추적 | 완료 |
-| 프론트엔드 화면 | 완료 |
-| 프론트엔드 - 백엔드 연동 | 진행 중 |
