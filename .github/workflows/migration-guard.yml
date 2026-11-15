@@ -1,0 +1,53 @@
+name: Migration Guard
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'BE/src/main/resources/db/migration/**'
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: migration-guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 기존 마이그레이션 변경 검사
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          DIR=BE/src/main/resources/db/migration
+          # M=수정 D=삭제 R=이름변경. 신규 추가(A)만 허용한다.
+          changed=$(git diff --name-only --diff-filter=MDR "$BASE" "$HEAD" -- "$DIR")
+          if [ -n "$changed" ]; then
+            echo "::error::이미 적용된 마이그레이션을 수정·삭제·이름변경했습니다."
+            printf '%s\n' "$changed" | sed 's|^|::error::  |'
+            echo "::error::기존 파일을 고치는 대신 V<다음번호>__설명.sql 을 새로 추가하세요."
+            exit 1
+          fi
+          echo "신규 마이그레이션만 추가되었습니다. OK"
+
+      - name: 파일명 규칙 검사
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          DIR=BE/src/main/resources/db/migration
+          added=$(git diff --name-only --diff-filter=A "$BASE" "$HEAD" -- "$DIR")
+          status=0
+          for f in $added; do
+            # 언더바 두 개를 빼먹는 실수가 흔하다.
+            if ! basename "$f" | grep -Eq '^V[0-9]+__[a-z0-9_]+\.sql$'; then
+              echo "::error file=$f::파일명이 V<숫자>__<소문자_설명>.sql 형식이 아닙니다."
+              status=1
+            fi
+          done
+          [ $status -eq 0 ] && echo "파일명 규칙 OK"
+          exit $status

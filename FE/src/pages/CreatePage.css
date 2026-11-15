@@ -1,0 +1,31 @@
+/* ---------- 메인 페이지 레이아웃 ---------- ??*/
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 var(--s5);
+}
+
+.grid {
+  display: grid;
+  gap: var(--s6);
+  padding-bottom: var(--s6);
+}
+
+/* ---------- 데스크톱 ---------- */
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: var(--s8);
+    align-items: stretch;
+  }
+
+  .grid > section {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .grid > section > .card {
+    flex: 1;
+  }
+}

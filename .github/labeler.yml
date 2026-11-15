@@ -1,0 +1,19 @@
+# 라벨은 저장소에 미리 만들어야 한다. BE #0366D6 / FE #fbca04 / infra #158b79 / docs #243c48
+BE:
+  - changed-files:
+      - any-glob-to-any-file: 'BE/**'
+
+FE:
+  - changed-files:
+      - any-glob-to-any-file: 'FE/**'
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - '.gitignore'
+          - 'scripts/**'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.md'
